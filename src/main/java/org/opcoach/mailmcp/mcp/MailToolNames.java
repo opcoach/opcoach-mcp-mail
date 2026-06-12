@@ -1,0 +1,23 @@
+package org.opcoach.mailmcp.mcp;
+
+import java.util.List;
+
+public final class MailToolNames {
+
+    public static final String SEND_EMAIL = "sendEmail";
+    public static final String LIST_MAILBOXES = "listMailboxes";
+    public static final String SEARCH_MESSAGES = "searchMessages";
+    public static final String GET_MESSAGE = "getMessage";
+    public static final String GET_ATTACHMENT = "getAttachment";
+
+    public static final List<String> ALL = List.of(
+            SEND_EMAIL,
+            LIST_MAILBOXES,
+            SEARCH_MESSAGES,
+            GET_MESSAGE,
+            GET_ATTACHMENT
+    );
+
+    private MailToolNames() {
+    }
+}
