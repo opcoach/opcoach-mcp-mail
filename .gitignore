@@ -1,0 +1,12 @@
+target/
+.classpath
+.project
+.settings/
+.idea/
+*.iml
+
+# Configuration locale et secrets
+.opcoach-mail-mcp/
+config.properties
+*.local.properties
+*.log
