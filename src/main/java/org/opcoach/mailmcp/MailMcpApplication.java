@@ -35,6 +35,9 @@ public final class MailMcpApplication {
                 if (options.command() == Command.CONFIG_SETUP) {
                     return TerminalSetupApplication.runInteractive(options.profile());
                 }
+                if (options.command() == Command.CONFIG_SET_PASSWORD) {
+                    return TerminalSetupApplication.runSetPassword(options.profile());
+                }
                 McpRuntime runtime = McpRuntime.create(options);
                 runtime.start();
                 return 0;
@@ -55,7 +58,8 @@ public final class MailMcpApplication {
 
     public enum Command {
         SERVER,
-        CONFIG_SETUP
+        CONFIG_SETUP,
+        CONFIG_SET_PASSWORD
     }
 
     public enum TransportMode {
@@ -98,10 +102,11 @@ public final class MailMcpApplication {
                     case "--token" -> token = requireValue(args, ++index, "--token");
                     case "config" -> {
                         String subCommand = requireValue(args, ++index, "config");
-                        if (!"setup".equals(subCommand) && !"set-password".equals(subCommand)) {
-                            throw new IllegalArgumentException("Sous-commande config inconnue: " + subCommand);
-                        }
-                        command = Command.CONFIG_SETUP;
+                        command = switch (subCommand) {
+                            case "setup" -> Command.CONFIG_SETUP;
+                            case "set-password" -> Command.CONFIG_SET_PASSWORD;
+                            default -> throw new IllegalArgumentException("Sous-commande config inconnue: " + subCommand);
+                        };
                     }
                     default -> throw new IllegalArgumentException("Argument inconnu: " + arg + " parmi " + Arrays.toString(args));
                 }
@@ -118,6 +123,7 @@ public final class MailMcpApplication {
                       java -jar target/opcoach-mail-mcp.jar --stdio [--profile default]
                       java -jar target/opcoach-mail-mcp.jar --http [--host 127.0.0.1] [--port 8095] [--token jeton]
                       java -jar target/opcoach-mail-mcp.jar config setup [--profile default]
+                      java -jar target/opcoach-mail-mcp.jar config set-password [--profile default]
 
                     Le mode --stdio est recommandé pour Codex et Claude Desktop.
                     Le mode --http écoute sur 127.0.0.1 par défaut. Un jeton est obligatoire hors localhost.
