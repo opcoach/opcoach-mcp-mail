@@ -9,10 +9,14 @@ public final class MailApplicationService implements MailToolService {
 
     private final MailConfiguration configuration;
     private final JakartaMailSender sender;
+    private final JakartaImapClient imapClient;
+    private final MailQueryParser queryParser;
 
     public MailApplicationService(MailConfiguration configuration, String password) {
         this.configuration = configuration;
         this.sender = new JakartaMailSender(configuration, password);
+        this.imapClient = new JakartaImapClient(configuration, password);
+        this.queryParser = new MailQueryParser(configuration.limits());
     }
 
     @Override
@@ -23,21 +27,23 @@ public final class MailApplicationService implements MailToolService {
 
     @Override
     public Object listMailboxes(Map<String, Object> arguments) {
-        throw new MailOperationException("listMailboxes sera disponible avec l'itération IMAP.");
+        boolean includeSpecialUse = Boolean.parseBoolean(String.valueOf(arguments.getOrDefault("includeSpecialUse", false)));
+        return Map.of("mailboxes", imapClient.listMailboxes(includeSpecialUse));
     }
 
     @Override
     public Object searchMessages(Map<String, Object> arguments) {
-        throw new MailOperationException("searchMessages sera disponible avec l'itération IMAP.");
+        SearchMessagesQuery query = queryParser.search(arguments);
+        return Map.of("messages", imapClient.searchMessages(query));
     }
 
     @Override
     public Object getMessage(Map<String, Object> arguments) {
-        throw new MailOperationException("getMessage sera disponible avec l'itération IMAP.");
+        return imapClient.getMessage(queryParser.getMessage(arguments));
     }
 
     @Override
     public Object getAttachment(Map<String, Object> arguments) {
-        throw new MailOperationException("getAttachment sera disponible avec l'itération IMAP.");
+        return imapClient.getAttachment(queryParser.getAttachment(arguments));
     }
 }
