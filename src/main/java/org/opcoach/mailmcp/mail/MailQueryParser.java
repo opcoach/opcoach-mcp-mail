@@ -36,11 +36,12 @@ public final class MailQueryParser {
     }
 
     public GetAttachmentQuery getAttachment(Map<String, Object> arguments) {
+        int maxAttachmentPayload = Math.max(1, (limits.maxResultBytes() * 3) / 4);
         return new GetAttachmentQuery(
                 string(arguments, "mailbox", "INBOX"),
                 uid(arguments),
                 required(arguments, "attachmentId"),
-                Math.min(integer(arguments, "maxBytes", limits.maxAttachmentBytes()), limits.maxAttachmentBytes())
+                Math.min(integer(arguments, "maxBytes", limits.maxAttachmentBytes()), Math.min(limits.maxAttachmentBytes(), maxAttachmentPayload))
         );
     }
 

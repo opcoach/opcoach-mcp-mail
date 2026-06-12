@@ -1,8 +1,14 @@
 package org.opcoach.mailmcp.mcp;
 
+import org.opcoach.mailmcp.audit.AuditLogger;
 import org.opcoach.mailmcp.MailMcpApplication.CliOptions;
 import org.opcoach.mailmcp.MailMcpApplication.TransportMode;
+import org.opcoach.mailmcp.config.ConfigurationLoader;
+import org.opcoach.mailmcp.config.MailConfiguration;
+import org.opcoach.mailmcp.config.ResolvedSecret;
+import org.opcoach.mailmcp.config.SecretResolver;
 import org.opcoach.mailmcp.config.ConfigurationException;
+import org.opcoach.mailmcp.mail.MailApplicationService;
 
 public final class McpRuntime {
 
@@ -20,11 +26,25 @@ public final class McpRuntime {
         if (options.transportMode() == TransportMode.HTTP && !isLocalhost(options.host()) && isBlank(options.httpToken())) {
             throw new ConfigurationException("Un jeton HTTP est obligatoire quand le serveur n'écoute pas sur localhost.");
         }
-        throw new ConfigurationException("""
-                Configuration absente ou serveur non initialisé.
-                Lancez ./mvnw -Psetup clean verify pour créer un profil local.
-                Le mot de passe sera stocké dans le trousseau du système quand il est disponible.
-                """);
+        MailConfiguration configuration = ConfigurationLoader.defaultLoader().load(options.profile());
+        ResolvedSecret secret = SecretResolver.system().resolve(configuration);
+        MailToolService toolService = new MailApplicationService(
+                configuration,
+                secret.value(),
+                AuditLogger.file(configuration.auditPath())
+        );
+        try {
+            if (options.transportMode() == TransportMode.HTTP) {
+                new McpHttpServer(options.host(), options.port(), options.httpToken(), toolService).startAndJoin();
+            } else {
+                new McpStdioServer(toolService).startAndWait();
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new ConfigurationException("Serveur MCP interrompu.", exception);
+        } catch (Exception exception) {
+            throw new ConfigurationException("Impossible de démarrer le serveur MCP: " + exception.getMessage(), exception);
+        }
     }
 
     private static boolean isLocalhost(String host) {

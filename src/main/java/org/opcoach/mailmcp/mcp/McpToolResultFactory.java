@@ -2,6 +2,7 @@ package org.opcoach.mailmcp.mcp;
 
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
+import org.opcoach.mailmcp.security.DataLimiter;
 import org.opcoach.mailmcp.security.SafeErrorMessage;
 
 import java.io.IOException;
@@ -12,9 +13,15 @@ import java.util.Map;
 public final class McpToolResultFactory {
 
     private final McpJsonMapper jsonMapper;
+    private final int maxResultBytes;
 
     public McpToolResultFactory(McpJsonMapper jsonMapper) {
+        this(jsonMapper, 100_000);
+    }
+
+    public McpToolResultFactory(McpJsonMapper jsonMapper, int maxResultBytes) {
         this.jsonMapper = jsonMapper;
+        this.maxResultBytes = maxResultBytes;
     }
 
     public McpSchema.CallToolResult success(Object data) {
@@ -44,7 +51,7 @@ public final class McpToolResultFactory {
 
     private String write(Object value) {
         try {
-            return jsonMapper.writeValueAsString(value);
+            return DataLimiter.truncateUtf8(jsonMapper.writeValueAsString(value), maxResultBytes);
         } catch (IOException exception) {
             return "{\"ok\":false,\"error\":{\"code\":\"serialization_error\",\"message\":\"Réponse non sérialisable.\"}}";
         }
