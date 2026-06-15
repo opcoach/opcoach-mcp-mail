@@ -4,9 +4,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 JAR="$REPO_DIR/target/opcoach-mcp-mail.jar"
+BASE_DIR="${MAIL_MCP_BASE_DIR:-$HOME/.opcoach-mcp-mail}"
+CONFIG_FILE="${MAIL_MCP_CONFIG:-}"
 RUN_DIR="${MAIL_MCP_RUN_DIR:-$REPO_DIR/.run}"
 PID_FILE="$RUN_DIR/opcoach-mcp-mail.pid"
 LOG_FILE="$RUN_DIR/opcoach-mcp-mail.log"
+SERVER_REGISTRY_DIR="$BASE_DIR/servers"
 
 source "$SCRIPT_DIR/java-runtime"
 
@@ -40,6 +43,30 @@ listening_pids() {
   if command -v lsof >/dev/null 2>&1; then
     lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null || true
   fi
+}
+
+process_command() {
+  local pid="$1"
+  ps -p "$pid" -o command= 2>/dev/null || true
+}
+
+register_server() {
+  local registry_name
+  if [[ -z "$CONFIG_FILE" || ! -f "$CONFIG_FILE" ]]; then
+    return
+  fi
+  registry_name="$(printf '%s' "$PROFILE" | sed -E 's/[^A-Za-z0-9_.-]+/_/g; s/^_+//; s/_+$//')"
+  if [[ -z "$registry_name" ]]; then
+    registry_name="default"
+  fi
+  mkdir -p "$SERVER_REGISTRY_DIR"
+  {
+    printf 'PROFILE=%s\n' "$PROFILE"
+    printf 'CONFIG_FILE=%s\n' "$CONFIG_FILE"
+    printf 'RUN_DIR=%s\n' "$RUN_DIR"
+    printf 'HOST=%s\n' "$HOST"
+    printf 'PORT=%s\n' "$PORT"
+  } > "$SERVER_REGISTRY_DIR/$registry_name.env"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -127,9 +154,14 @@ mkdir -p "$RUN_DIR"
 if [[ -f "$PID_FILE" ]]; then
   PID="$(< "$PID_FILE")"
   if [[ "$PID" =~ ^[0-9]+$ ]] && kill -0 "$PID" 2>/dev/null; then
-    echo "opcoach-mcp-mail is already running with PID $PID."
-    echo "Log: $LOG_FILE"
-    exit 0
+    COMMAND_LINE="$(process_command "$PID")"
+    if [[ "$COMMAND_LINE" == *"opcoach-mcp-mail.jar"* ]]; then
+      register_server
+      echo "opcoach-mcp-mail is already running with PID $PID."
+      echo "Log: $LOG_FILE"
+      exit 0
+    fi
+    echo "Removing stale PID file for PID $PID." >&2
   fi
   rm -f "$PID_FILE"
 fi
@@ -152,6 +184,7 @@ printf '%s\n' "$PID" > "$PID_FILE"
 
 sleep 1
 if kill -0 "$PID" 2>/dev/null; then
+  register_server
   echo "opcoach-mcp-mail started with PID $PID."
   echo "URL: http://$HOST:$PORT/mcp"
   echo "Log: $LOG_FILE"

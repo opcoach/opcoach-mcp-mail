@@ -140,3 +140,6 @@ echo
 echo "Done."
 echo "Add this MCP URL in Codex:"
 echo "http://127.0.0.1:$PORT/mcp"
+echo
+echo "After a reboot, restart all registered local MCP servers with:"
+echo "$REPO_DIR/bin/start-all"

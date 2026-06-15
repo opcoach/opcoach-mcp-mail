@@ -77,6 +77,18 @@ The wizard keeps configuration and runtime files separate by profile under:
 ~/.opcoach-mcp-mail/
 ```
 
+It also registers each local HTTP server under:
+
+```text
+~/.opcoach-mcp-mail/servers/
+```
+
+After rebooting the machine, restart every registered server with:
+
+```bash
+bin/start-all
+```
+
 Passwords are not written to configuration files. On macOS, they are stored in the local keychain with the profile name.
 
 ## Script Reference
@@ -92,12 +104,15 @@ Manual helpers:
 ```bash
 bin/setup-ui --profile default
 bin/start-server --profile default --port 8095
+bin/start-all
 bin/stop-server
 ```
 
 `bin/setup-ui`, `bin/start-server`, and `bin/local-wizard` use Java 24+ from the system when available. If Java is missing or older, they download a local Eclipse Temurin JRE into `.runtime/`.
 
 `bin/start-server` runs the HTTP server on `127.0.0.1:8095` by default. It writes the PID file and logs under `.run/`, and builds `target/opcoach-mcp-mail.jar` automatically if it is missing.
+
+`bin/start-all` starts every local HTTP server registered by `bin/local-wizard`. Use it after rebooting instead of re-running each mailbox setup.
 
 ## Advanced Jar Usage
 
