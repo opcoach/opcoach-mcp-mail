@@ -10,7 +10,7 @@ import io.modelcontextprotocol.spec.McpStreamableServerTransportProvider;
 
 public final class MailMcpServerFactory {
 
-    private static final String SERVER_NAME = "opcoach-mail-mcp";
+    private static final String SERVER_NAME = "opcoach-mcp-mail";
     private static final String SERVER_VERSION = "0.1.0";
 
     private final McpJsonMapper jsonMapper;

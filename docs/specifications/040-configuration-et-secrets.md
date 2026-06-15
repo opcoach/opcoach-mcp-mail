@@ -75,7 +75,7 @@ La mini UI de configuration, si elle est activée, doit:
 Commande indicative pour enregistrer un secret:
 
 ```bash
-java -jar target/opcoach-mail-mcp.jar config set-password --profile default
+java -jar target/opcoach-mcp-mail.jar config set-password --profile default
 ```
 
 Commande indicative pour lancer l'assistant terminal:

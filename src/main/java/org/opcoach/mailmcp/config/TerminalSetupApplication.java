@@ -21,7 +21,7 @@ public final class TerminalSetupApplication {
     public static int runInteractive(String profile) {
         TerminalPrompter prompter = new TerminalPrompter();
         Path configPath = ConfigurationPaths.defaultConfigPath();
-        System.out.printf("Assistant de configuration opcoach-mail-mcp pour le profil %s.%n", profile);
+        System.out.printf("Assistant de configuration opcoach-mcp-mail pour le profil %s.%n", profile);
         System.out.printf("Fichier écrit: %s%n", configPath.toAbsolutePath());
 
         ConfigurationDraft draft = new ConfigurationDraft(

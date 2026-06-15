@@ -43,7 +43,7 @@ Définir les évolutions possibles après la v1, sans compliquer le premier livr
 Exemple de future commande multi-profils:
 
 ```bash
-java -jar target/opcoach-mail-mcp.jar --stdio --profile formation
+java -jar target/opcoach-mcp-mail.jar --stdio --profile formation
 ```
 
 Exemple de future action sensible:

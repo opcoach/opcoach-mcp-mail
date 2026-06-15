@@ -37,7 +37,7 @@ public final class ConfigurationWriter {
                 Files.createDirectories(parent);
             }
             try (OutputStream output = Files.newOutputStream(configPath)) {
-                properties.store(output, "Configuration locale opcoach-mail-mcp. Aucun secret dans ce fichier.");
+                properties.store(output, "Configuration locale opcoach-mcp-mail. Aucun secret dans ce fichier.");
             }
             restrictOwnerReadWrite(configPath);
         } catch (IOException exception) {

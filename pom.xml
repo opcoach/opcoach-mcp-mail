@@ -5,9 +5,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.opcoach</groupId>
-    <artifactId>opcoach-mail-mcp</artifactId>
+    <artifactId>opcoach-mcp-mail</artifactId>
     <version>0.1.0-SNAPSHOT</version>
-    <name>opcoach-mail-mcp</name>
+    <name>opcoach-mcp-mail</name>
     <description>Serveur MCP local-first pour boîtes mail IMAP/SMTP génériques.</description>
 
     <properties>
@@ -111,7 +111,7 @@
                                     <mainClass>org.opcoach.mailmcp.MailMcpApplication</mainClass>
                                 </transformer>
                             </transformers>
-                            <finalName>opcoach-mail-mcp</finalName>
+                            <finalName>opcoach-mcp-mail</finalName>
                         </configuration>
                     </execution>
                 </executions>

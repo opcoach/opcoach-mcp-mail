@@ -57,7 +57,7 @@ public final class McpHttpServer {
             context.addFilter(new FilterHolder(new BearerTokenFilter(token)), "/*", EnumSet.of(DispatcherType.REQUEST));
         }
         server.setHandler(context);
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> stop(server), "opcoach-mail-mcp-http-stop"));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> stop(server), "opcoach-mcp-mail-http-stop"));
         server.start();
         LOGGER.info("Serveur MCP HTTP démarré sur http://{}:{}/mcp", host, connector.getLocalPort());
         server.join();

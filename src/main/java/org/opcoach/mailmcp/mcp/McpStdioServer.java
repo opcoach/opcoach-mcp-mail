@@ -25,7 +25,7 @@ public final class McpStdioServer {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             server.closeGracefully();
             stopped.countDown();
-        }, "opcoach-mail-mcp-stdio-stop"));
+        }, "opcoach-mcp-mail-stdio-stop"));
         LOGGER.info("Serveur MCP stdio démarré.");
         stopped.await();
     }

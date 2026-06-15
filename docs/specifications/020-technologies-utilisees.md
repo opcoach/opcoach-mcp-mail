@@ -21,13 +21,13 @@ Le projet doit se compiler et se lancer avec des commandes standards:
 ```bash
 ./mvnw test
 ./mvnw package
-java -jar target/opcoach-mail-mcp.jar --stdio
+java -jar target/opcoach-mcp-mail.jar --stdio
 ```
 
 Le projet doit aussi pouvoir être lancé en HTTP local:
 
 ```bash
-java -jar target/opcoach-mail-mcp.jar --http --port 8095
+java -jar target/opcoach-mcp-mail.jar --http --port 8095
 ```
 
 ## Points d'attention

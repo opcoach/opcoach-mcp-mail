@@ -117,13 +117,13 @@ public final class MailMcpApplication {
 
         static String help() {
             return """
-                    opcoach-mail-mcp
+                    opcoach-mcp-mail
 
                     Usage:
-                      java -jar target/opcoach-mail-mcp.jar --stdio [--profile default]
-                      java -jar target/opcoach-mail-mcp.jar --http [--host 127.0.0.1] [--port 8095] [--token jeton]
-                      java -jar target/opcoach-mail-mcp.jar config setup [--profile default]
-                      java -jar target/opcoach-mail-mcp.jar config set-password [--profile default]
+                      java -jar target/opcoach-mcp-mail.jar --stdio [--profile default]
+                      java -jar target/opcoach-mcp-mail.jar --http [--host 127.0.0.1] [--port 8095] [--token jeton]
+                      java -jar target/opcoach-mcp-mail.jar config setup [--profile default]
+                      java -jar target/opcoach-mcp-mail.jar config set-password [--profile default]
 
                     Le mode --stdio est recommandé pour Codex et Claude Desktop.
                     Le mode --http écoute sur 127.0.0.1 par défaut. Un jeton est obligatoire hors localhost.

@@ -2,7 +2,7 @@
 
 ## Objectif
 
-Définir les conditions nécessaires pour publier `opcoach-mail-mcp` en open source sur GitHub et rendre sa première utilisation très simple après clonage.
+Définir les conditions nécessaires pour publier `opcoach-mcp-mail` en open source sur GitHub et rendre sa première utilisation très simple après clonage.
 
 ## Décisions retenues
 
@@ -20,11 +20,11 @@ Définir les conditions nécessaires pour publier `opcoach-mail-mcp` en open sou
 Le `README.md` public doit permettre cette première expérience:
 
 ```bash
-git clone https://github.com/opcoach/opcoach-mail-mcp.git
-cd opcoach-mail-mcp
+git clone https://github.com/opcoach/opcoach-mcp-mail.git
+cd opcoach-mcp-mail
 ./mvnw clean verify
 ./mvnw -Psetup clean verify
-java -jar target/opcoach-mail-mcp.jar --stdio
+java -jar target/opcoach-mcp-mail.jar --stdio
 ```
 
 Le dépôt GitHub doit contenir au minimum:

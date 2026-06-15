@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
 
 public final class KeychainSecretStore implements SecretStore {
 
-    static final String SERVICE = "opcoach-mail-mcp";
+    static final String SERVICE = "opcoach-mcp-mail";
     private final String osName;
 
     public KeychainSecretStore() {

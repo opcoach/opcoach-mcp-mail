@@ -105,7 +105,7 @@ public final class SetupUiApplication {
                 <head>
                   <meta charset="utf-8">
                   <meta name="viewport" content="width=device-width, initial-scale=1">
-                  <title>Configuration opcoach-mail-mcp</title>
+                  <title>Configuration opcoach-mcp-mail</title>
                   <style>
                     body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; color: #1f2937; }
                     label { display: block; margin-top: 1rem; font-weight: 600; }

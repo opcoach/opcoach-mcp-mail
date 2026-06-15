@@ -1,4 +1,4 @@
-# opcoach-mail-mcp
+# opcoach-mcp-mail
 
 Serveur MCP local-first pour accéder à une boîte mail IMAP/SMTP générique depuis Codex, Claude Code Pro, Claude Desktop ou tout client compatible MCP.
 
@@ -15,8 +15,8 @@ Maven n'est pas requis: le dépôt inclut Maven Wrapper.
 ## Installer et vérifier
 
 ```bash
-git clone https://github.com/opcoach/opcoach-mail-mcp.git
-cd opcoach-mail-mcp
+git clone https://github.com/opcoach/opcoach-mcp-mail.git
+cd opcoach-mcp-mail
 ./mvnw clean verify
 ```
 
@@ -39,7 +39,7 @@ Ou mini UI locale éphémère:
 Par défaut, la configuration non secrète est écrite dans:
 
 ```text
-~/.opcoach-mail-mcp/config.properties
+~/.opcoach-mcp-mail/config.properties
 ```
 
 Exemple:
@@ -67,7 +67,7 @@ export MAIL_MCP_PASSWORD="mot-de-passe-fictif"
 Pour enregistrer le mot de passe dans le trousseau local:
 
 ```bash
-java -jar target/opcoach-mail-mcp.jar config set-password --profile default
+java -jar target/opcoach-mcp-mail.jar config set-password --profile default
 ```
 
 Le trousseau macOS est pris en charge. Sur les autres plateformes, utilisez temporairement `MAIL_MCP_PASSWORD` tant qu'un backend durable n'est pas ajouté.
@@ -77,19 +77,19 @@ Le trousseau macOS est pris en charge. Sur les autres plateformes, utilisez temp
 Mode recommandé pour Codex et Claude:
 
 ```bash
-java -jar target/opcoach-mail-mcp.jar --stdio
+java -jar target/opcoach-mcp-mail.jar --stdio
 ```
 
 Mode HTTP local:
 
 ```bash
-java -jar target/opcoach-mail-mcp.jar --http --port 8095
+java -jar target/opcoach-mcp-mail.jar --http --port 8095
 ```
 
 Le serveur HTTP écoute sur `127.0.0.1` par défaut. Si vous écoutez sur une autre interface, fournissez un jeton:
 
 ```bash
-java -jar target/opcoach-mail-mcp.jar --http --host 0.0.0.0 --port 8095 --token "jeton-long-et-aléatoire"
+java -jar target/opcoach-mcp-mail.jar --http --host 0.0.0.0 --port 8095 --token "jeton-long-et-aléatoire"
 ```
 
 ## Configuration Codex
@@ -99,9 +99,9 @@ Exemple indicatif:
 ```json
 {
   "mcpServers": {
-    "opcoach-mail": {
+    "opcoach-mcp-mail": {
       "command": "java",
-      "args": ["-jar", "/chemin/vers/opcoach-mail-mcp/target/opcoach-mail-mcp.jar", "--stdio"]
+      "args": ["-jar", "/chemin/vers/opcoach-mcp-mail/target/opcoach-mcp-mail.jar", "--stdio"]
     }
   }
 }
@@ -114,9 +114,9 @@ Exemple indicatif:
 ```json
 {
   "mcpServers": {
-    "opcoach-mail": {
+    "opcoach-mcp-mail": {
       "command": "java",
-      "args": ["-jar", "/chemin/vers/opcoach-mail-mcp/target/opcoach-mail-mcp.jar", "--stdio"]
+      "args": ["-jar", "/chemin/vers/opcoach-mcp-mail/target/opcoach-mcp-mail.jar", "--stdio"]
     }
   }
 }

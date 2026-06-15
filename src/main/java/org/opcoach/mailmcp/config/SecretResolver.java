@@ -42,7 +42,7 @@ public final class SecretResolver {
                 .map(value -> new ResolvedSecret(value, ResolvedSecret.SecretSource.KEYCHAIN))
                 .orElseThrow(() -> new ConfigurationException("""
                         Mot de passe absent pour le profil %s.
-                        Lancez java -jar target/opcoach-mail-mcp.jar config set-password --profile %s
+                        Lancez java -jar target/opcoach-mcp-mail.jar config set-password --profile %s
                         ou exportez temporairement MAIL_MCP_PASSWORD.
                         """.formatted(configuration.profile(), configuration.profile())));
     }

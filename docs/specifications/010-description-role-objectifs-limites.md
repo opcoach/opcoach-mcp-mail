@@ -2,7 +2,7 @@
 
 ## Objectif
 
-Définir le périmètre du projet `opcoach-mail-mcp`: un serveur MCP open source permettant à un assistant IA d'utiliser une boîte mail professionnelle via les protocoles standards IMAP et SMTP.
+Définir le périmètre du projet `opcoach-mcp-mail`: un serveur MCP open source permettant à un assistant IA d'utiliser une boîte mail professionnelle via les protocoles standards IMAP et SMTP.
 
 Le projet doit servir à la fois d'outil réel et de support pédagogique pour montrer comment connecter une IA à un système externe sans passer par Gmail ni par une intégration propriétaire.
 

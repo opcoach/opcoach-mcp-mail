@@ -6,7 +6,7 @@ import java.util.Map;
 public final class ConfigurationPaths {
 
     public static final String CONFIG_ENV = "MAIL_MCP_CONFIG";
-    public static final String HOME_DIR = ".opcoach-mail-mcp";
+    public static final String HOME_DIR = ".opcoach-mcp-mail";
     public static final String CONFIG_FILE = "config.properties";
     public static final String AUDIT_FILE = "audit.log";
 

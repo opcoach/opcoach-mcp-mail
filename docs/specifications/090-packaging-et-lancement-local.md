@@ -21,8 +21,8 @@ Définir comment un utilisateur ou un stagiaire installe, compile et lance le se
 Installation:
 
 ```bash
-git clone https://github.com/opcoach/opcoach-mail-mcp.git
-cd opcoach-mail-mcp
+git clone https://github.com/opcoach/opcoach-mcp-mail.git
+cd opcoach-mcp-mail
 ./mvnw clean verify
 ```
 
@@ -41,13 +41,13 @@ Configuration avec mini UI locale:
 Lancement stdio:
 
 ```bash
-java -jar target/opcoach-mail-mcp.jar --stdio
+java -jar target/opcoach-mcp-mail.jar --stdio
 ```
 
 Lancement HTTP local:
 
 ```bash
-java -jar target/opcoach-mail-mcp.jar --http --port 8095
+java -jar target/opcoach-mcp-mail.jar --http --port 8095
 ```
 
 Le profil `-Psetup` peut poser des questions interactives uniquement quand il est demandé explicitement. Le build standard ne doit jamais bloquer en attente d'une saisie utilisateur.
@@ -71,9 +71,9 @@ Configuration Claude Desktop indicative:
 ```json
 {
   "mcpServers": {
-    "opcoach-mail": {
+    "opcoach-mcp-mail": {
       "command": "java",
-      "args": ["-jar", "/chemin/fictif/opcoach-mail-mcp.jar", "--stdio"]
+      "args": ["-jar", "/chemin/fictif/opcoach-mcp-mail.jar", "--stdio"]
     }
   }
 }
