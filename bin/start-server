@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+JAR="$REPO_DIR/target/opcoach-mcp-mail.jar"
+RUN_DIR="${MAIL_MCP_RUN_DIR:-$REPO_DIR/.run}"
+PID_FILE="$RUN_DIR/opcoach-mcp-mail.pid"
+LOG_FILE="$RUN_DIR/opcoach-mcp-mail.log"
+
+PROFILE="${MAIL_MCP_PROFILE:-default}"
+HOST="${MAIL_MCP_HOST:-127.0.0.1}"
+PORT="${MAIL_MCP_PORT:-8095}"
+TOKEN="${MAIL_MCP_HTTP_TOKEN:-}"
+BUILD_IF_MISSING=1
+FOREGROUND=0
+PROFILE_SET=0
+
+usage() {
+  cat <<'USAGE'
+Usage: bin/start-server [--profile PROFILE] [--host HOST] [--port PORT] [--token TOKEN] [--foreground] [--no-build]
+
+Starts opcoach-mcp-mail in HTTP mode. By default it listens only on 127.0.0.1:8095.
+Background mode writes runtime files to .run/.
+
+Options:
+  --profile PROFILE  Configuration profile. Defaults to MAIL_MCP_PROFILE or default.
+  --host HOST        Bind host. Defaults to MAIL_MCP_HOST or 127.0.0.1.
+  --port PORT        Bind port. Defaults to MAIL_MCP_PORT or 8095.
+  --token TOKEN      HTTP bearer token. Defaults to MAIL_MCP_HTTP_TOKEN.
+  --foreground       Run in the foreground instead of using the PID file.
+  --no-build         Fail if target/opcoach-mcp-mail.jar does not exist.
+  -h, --help         Show this help.
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --profile)
+      [[ $# -ge 2 ]] || { echo "Missing value for --profile" >&2; exit 2; }
+      PROFILE="$2"
+      PROFILE_SET=1
+      shift 2
+      ;;
+    --host)
+      [[ $# -ge 2 ]] || { echo "Missing value for --host" >&2; exit 2; }
+      HOST="$2"
+      shift 2
+      ;;
+    --port)
+      [[ $# -ge 2 ]] || { echo "Missing value for --port" >&2; exit 2; }
+      PORT="$2"
+      shift 2
+      ;;
+    --token)
+      [[ $# -ge 2 ]] || { echo "Missing value for --token" >&2; exit 2; }
+      TOKEN="$2"
+      shift 2
+      ;;
+    --foreground)
+      FOREGROUND=1
+      shift
+      ;;
+    --no-build)
+      BUILD_IF_MISSING=0
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      if [[ "$PROFILE_SET" -eq 0 ]]; then
+        PROFILE="$1"
+        PROFILE_SET=1
+        shift
+      else
+        echo "Unexpected argument: $1" >&2
+        usage >&2
+        exit 2
+      fi
+      ;;
+  esac
+done
+
+if [[ ! "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then
+  echo "Invalid port: $PORT" >&2
+  exit 2
+fi
+
+if [[ ! -f "$JAR" ]]; then
+  if [[ "$BUILD_IF_MISSING" -eq 0 ]]; then
+    echo "Missing jar: $JAR" >&2
+    echo "Run ./mvnw -DskipTests package first." >&2
+    exit 1
+  fi
+  echo "Building $JAR ..."
+  (cd "$REPO_DIR" && ./mvnw -DskipTests package)
+fi
+
+COMMAND=(java -jar "$JAR" --http --host "$HOST" --port "$PORT" --profile "$PROFILE")
+if [[ -n "$TOKEN" ]]; then
+  COMMAND+=(--token "$TOKEN")
+fi
+
+if [[ "$FOREGROUND" -eq 1 ]]; then
+  exec "${COMMAND[@]}"
+fi
+
+mkdir -p "$RUN_DIR"
+if [[ -f "$PID_FILE" ]]; then
+  PID="$(< "$PID_FILE")"
+  if [[ "$PID" =~ ^[0-9]+$ ]] && kill -0 "$PID" 2>/dev/null; then
+    echo "opcoach-mcp-mail is already running with PID $PID."
+    echo "Log: $LOG_FILE"
+    exit 0
+  fi
+  rm -f "$PID_FILE"
+fi
+
+nohup "${COMMAND[@]}" >> "$LOG_FILE" 2>&1 &
+PID=$!
+printf '%s\n' "$PID" > "$PID_FILE"
+
+sleep 1
+if kill -0 "$PID" 2>/dev/null; then
+  echo "opcoach-mcp-mail started with PID $PID."
+  echo "URL: http://$HOST:$PORT/mcp"
+  echo "Log: $LOG_FILE"
+else
+  rm -f "$PID_FILE"
+  echo "opcoach-mcp-mail failed to start. Last log lines:" >&2
+  tail -n 40 "$LOG_FILE" >&2 || true
+  exit 1
+fi

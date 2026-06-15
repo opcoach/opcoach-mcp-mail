@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+JAR="$REPO_DIR/target/opcoach-mcp-mail.jar"
+
+PROFILE="${MAIL_MCP_PROFILE:-default}"
+BUILD_IF_MISSING=1
+PROFILE_SET=0
+
+usage() {
+  cat <<'USAGE'
+Usage: bin/setup-ui [--profile PROFILE] [--no-build]
+
+Starts the temporary local setup UI on 127.0.0.1.
+
+Options:
+  --profile PROFILE  Configuration profile to edit. Defaults to MAIL_MCP_PROFILE or default.
+  --no-build         Fail if target/opcoach-mcp-mail.jar does not exist.
+  -h, --help         Show this help.
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --profile)
+      [[ $# -ge 2 ]] || { echo "Missing value for --profile" >&2; exit 2; }
+      PROFILE="$2"
+      PROFILE_SET=1
+      shift 2
+      ;;
+    --no-build)
+      BUILD_IF_MISSING=0
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      if [[ "$PROFILE_SET" -eq 0 ]]; then
+        PROFILE="$1"
+        PROFILE_SET=1
+        shift
+      else
+        echo "Unexpected argument: $1" >&2
+        usage >&2
+        exit 2
+      fi
+      ;;
+  esac
+done
+
+if [[ ! -f "$JAR" ]]; then
+  if [[ "$BUILD_IF_MISSING" -eq 0 ]]; then
+    echo "Missing jar: $JAR" >&2
+    echo "Run ./mvnw -DskipTests package first." >&2
+    exit 1
+  fi
+  echo "Building $JAR ..."
+  (cd "$REPO_DIR" && ./mvnw -DskipTests package)
+fi
+
+exec java -cp "$JAR" org.opcoach.mailmcp.config.SetupUiApplication "$PROFILE"

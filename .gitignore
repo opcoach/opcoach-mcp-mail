@@ -5,8 +5,9 @@ target/
 .idea/
 *.iml
 
-# Configuration locale et secrets
+# Local configuration, runtime state, and secrets
 .opcoach-mail-mcp/
+.run/
 config.properties
 *.local.properties
 *.log

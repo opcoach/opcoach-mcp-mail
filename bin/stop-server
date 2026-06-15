@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+RUN_DIR="${MAIL_MCP_RUN_DIR:-$REPO_DIR/.run}"
+PID_FILE="$RUN_DIR/opcoach-mcp-mail.pid"
+TIMEOUT=15
+FORCE=0
+
+usage() {
+  cat <<'USAGE'
+Usage: bin/stop-server [--timeout SECONDS] [--force]
+
+Stops the background opcoach-mcp-mail server started by bin/start-server.
+
+Options:
+  --timeout SECONDS  Seconds to wait after SIGTERM. Defaults to 15.
+  --force            Send SIGKILL if the process does not stop before timeout.
+  -h, --help         Show this help.
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --timeout)
+      [[ $# -ge 2 ]] || { echo "Missing value for --timeout" >&2; exit 2; }
+      TIMEOUT="$2"
+      shift 2
+      ;;
+    --force)
+      FORCE=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [[ ! "$TIMEOUT" =~ ^[0-9]+$ ]]; then
+  echo "Invalid timeout: $TIMEOUT" >&2
+  exit 2
+fi
+
+if [[ ! -f "$PID_FILE" ]]; then
+  echo "opcoach-mcp-mail is not running: missing PID file $PID_FILE."
+  exit 0
+fi
+
+PID="$(< "$PID_FILE")"
+if [[ ! "$PID" =~ ^[0-9]+$ ]]; then
+  echo "Invalid PID file: $PID_FILE" >&2
+  exit 1
+fi
+
+if ! kill -0 "$PID" 2>/dev/null; then
+  rm -f "$PID_FILE"
+  echo "opcoach-mcp-mail is not running. Removed stale PID file."
+  exit 0
+fi
+
+COMMAND="$(ps -p "$PID" -o command= 2>/dev/null || true)"
+if [[ "$COMMAND" != *"opcoach-mcp-mail.jar"* ]]; then
+  echo "Refusing to stop PID $PID because it does not look like opcoach-mcp-mail." >&2
+  echo "Command: $COMMAND" >&2
+  exit 1
+fi
+
+kill "$PID"
+for ((elapsed = 0; elapsed < TIMEOUT; elapsed++)); do
+  if ! kill -0 "$PID" 2>/dev/null; then
+    rm -f "$PID_FILE"
+    echo "opcoach-mcp-mail stopped."
+    exit 0
+  fi
+  sleep 1
+done
+
+if [[ "$FORCE" -eq 1 ]]; then
+  kill -KILL "$PID"
+  rm -f "$PID_FILE"
+  echo "opcoach-mcp-mail force-stopped."
+  exit 0
+fi
+
+echo "opcoach-mcp-mail did not stop within ${TIMEOUT}s. Re-run with --force if needed." >&2
+exit 1

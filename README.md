@@ -92,6 +92,16 @@ The HTTP server listens on `127.0.0.1` by default. If you listen on another inte
 java -jar target/opcoach-mcp-mail.jar --http --host 0.0.0.0 --port 8095 --token "long-random-token"
 ```
 
+Convenience scripts are also available:
+
+```bash
+bin/setup-ui --profile default
+bin/start-server --profile default --port 8095
+bin/stop-server
+```
+
+`bin/start-server` runs the HTTP server on `127.0.0.1:8095` by default. It writes the PID file and logs under `.run/`, and builds `target/opcoach-mcp-mail.jar` automatically if it is missing.
+
 ## Codex Configuration
 
 Example:
