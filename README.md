@@ -22,65 +22,84 @@ cd opcoach-mcp-mail
 
 The standard build is non-interactive and uses only fake mail servers for tests.
 
-## Configure
+## Quick Local Setup
 
-Terminal setup assistant:
-
-```bash
-./mvnw -Psetup clean verify
-```
-
-Or the temporary local mini UI:
+For local training or non-technical users, run the interactive wizard:
 
 ```bash
-./mvnw -Psetup-ui clean verify
+bin/local-wizard
 ```
 
-By default, non-secret configuration is written to:
+The wizard:
+
+- checks Java 24;
+- builds the server with Maven Wrapper if needed;
+- proposes a free local MCP port;
+- starts the setup UI for IMAP/SMTP settings and the mailbox password;
+- starts the local HTTP MCP server;
+- prints the URL to copy into Codex.
+
+At the end, copy the printed URL into Codex, for example:
 
 ```text
-~/.opcoach-mcp-mail/config.properties
+http://127.0.0.1:8095/mcp
 ```
 
-Example:
+In Codex, choose:
 
-```properties
-profile=default
-imap.host=imap.example.com
-imap.port=993
-imap.security=ssl_tls
-smtp.host=smtp.example.com
-smtp.port=465
-smtp.security=ssl_tls
-username=training@example.com
-from.address=training@example.com
-from.name=MCP Training
-sent.mailbox=INBOX.Sent
+```text
+Mode: HTTP streamable / HTTP diffusable
+URL:  http://127.0.0.1:8095/mcp
+Credentials: empty
+Headers: empty
 ```
 
-The password is not written to this file. For a short workshop:
+Do not configure Codex with the jar in this local workflow. The script starts the jar; Codex only connects to the local HTTP URL.
+
+## Multiple Mailboxes
+
+Run the wizard once per mailbox. Each run can use a different profile and a different port:
+
+```text
+Mailbox 1 -> http://127.0.0.1:8095/mcp
+Mailbox 2 -> http://127.0.0.1:8096/mcp
+```
+
+The wizard keeps configuration and runtime files separate by profile under:
+
+```text
+~/.opcoach-mcp-mail/
+```
+
+Passwords are not written to configuration files. On macOS, they are stored in the local keychain with the profile name.
+
+## Script Reference
+
+Main local workflow:
 
 ```bash
-export MAIL_MCP_PASSWORD="fake-password"
+bin/local-wizard
 ```
 
-To save the password in the local keychain:
+Manual helpers:
 
 ```bash
-java -jar target/opcoach-mcp-mail.jar config set-password --profile default
+bin/setup-ui --profile default
+bin/start-server --profile default --port 8095
+bin/stop-server
 ```
 
-The macOS keychain is supported. On other platforms, use `MAIL_MCP_PASSWORD` temporarily until a durable backend is added.
+`bin/start-server` runs the HTTP server on `127.0.0.1:8095` by default. It writes the PID file and logs under `.run/`, and builds `target/opcoach-mcp-mail.jar` automatically if it is missing.
 
-## Run with an MCP Client
+## Advanced Jar Usage
 
-Recommended mode for Codex and Claude:
+Direct stdio mode is useful for clients that launch MCP servers themselves:
 
 ```bash
 java -jar target/opcoach-mcp-mail.jar --stdio
 ```
 
-Local HTTP mode:
+Direct HTTP mode:
 
 ```bash
 java -jar target/opcoach-mcp-mail.jar --http --port 8095
@@ -92,44 +111,35 @@ The HTTP server listens on `127.0.0.1` by default. If you listen on another inte
 java -jar target/opcoach-mcp-mail.jar --http --host 0.0.0.0 --port 8095 --token "long-random-token"
 ```
 
-Convenience scripts are also available:
+For direct jar usage, the default non-secret configuration file is:
 
-```bash
-bin/setup-ui --profile default
-bin/start-server --profile default --port 8095
-bin/stop-server
+```text
+~/.opcoach-mcp-mail/config.properties
 ```
 
-`bin/start-server` runs the HTTP server on `127.0.0.1:8095` by default. It writes the PID file and logs under `.run/`, and builds `target/opcoach-mcp-mail.jar` automatically if it is missing.
+The macOS keychain is supported for passwords. On other platforms, use `MAIL_MCP_PASSWORD` temporarily until a durable backend is added.
 
-## Codex Configuration
+## Codex HTTP Configuration
 
 Example:
 
-```json
-{
-  "mcpServers": {
-    "opcoach-mcp-mail": {
-      "command": "java",
-      "args": ["-jar", "/path/to/opcoach-mcp-mail/target/opcoach-mcp-mail.jar", "--stdio"]
-    }
-  }
-}
+```text
+Name: OPCoach MCP Mail
+Mode: HTTP streamable / HTTP diffusable
+URL:  http://127.0.0.1:8095/mcp
+Bearer token environment variable: empty
+Headers: empty
 ```
 
-## Claude Configuration
+## Claude HTTP Configuration
 
 Example:
 
-```json
-{
-  "mcpServers": {
-    "opcoach-mcp-mail": {
-      "command": "java",
-      "args": ["-jar", "/path/to/opcoach-mcp-mail/target/opcoach-mcp-mail.jar", "--stdio"]
-    }
-  }
-}
+```text
+Name: OPCoach MCP Mail
+Mode: HTTP streamable
+URL:  http://127.0.0.1:8095/mcp
+Authentication: none for localhost
 ```
 
 ## Exposed Tools

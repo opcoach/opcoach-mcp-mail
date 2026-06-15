@@ -34,6 +34,12 @@ Options:
 USAGE
 }
 
+listening_pids() {
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null || true
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --profile)
@@ -123,6 +129,18 @@ if [[ -f "$PID_FILE" ]]; then
   rm -f "$PID_FILE"
 fi
 
+PORT_PIDS="$(listening_pids)"
+if [[ -n "$PORT_PIDS" ]]; then
+  echo "Port $PORT is already in use on $HOST." >&2
+  echo "Listening PID(s): $PORT_PIDS" >&2
+  echo "Stop the existing process or choose another port with --port." >&2
+  exit 1
+fi
+
+{
+  echo
+  echo "===== $(date '+%Y-%m-%d %H:%M:%S') starting profile=$PROFILE host=$HOST port=$PORT ====="
+} >> "$LOG_FILE"
 nohup "${COMMAND[@]}" >> "$LOG_FILE" 2>&1 &
 PID=$!
 printf '%s\n' "$PID" > "$PID_FILE"

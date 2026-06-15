@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+JAR="$REPO_DIR/target/opcoach-mcp-mail.jar"
+BASE_DIR="${MAIL_MCP_BASE_DIR:-$HOME/.opcoach-mcp-mail}"
+DEFAULT_PORT="${MAIL_MCP_PORT:-8095}"
+
+usage() {
+  cat <<'USAGE'
+Usage: bin/local-wizard
+
+Interactive local setup for non-technical users:
+  1. checks Java,
+  2. builds the jar with Maven Wrapper if needed,
+  3. picks an available MCP port,
+  4. prints the setup UI URL to open,
+  5. starts the local MCP server.
+
+Options:
+  -h, --help  Show this help.
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+ask() {
+  local label="$1"
+  local default_value="$2"
+  local value
+  read -r -p "$label [$default_value]: " value
+  if [[ -z "$value" ]]; then
+    printf '%s\n' "$default_value"
+  else
+    printf '%s\n' "$value"
+  fi
+}
+
+sanitize_profile() {
+  local raw="$1"
+  local sanitized
+  sanitized="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+  if [[ -z "$sanitized" ]]; then
+    sanitized="default"
+  fi
+  printf '%s\n' "$sanitized"
+}
+
+port_is_free() {
+  local port="$1"
+  if command -v lsof >/dev/null 2>&1; then
+    ! lsof -nP -iTCP:"$port" -sTCP:LISTEN -t >/dev/null 2>&1
+    return
+  fi
+  return 0
+}
+
+first_free_port() {
+  local port="$1"
+  while (( port <= 65535 )); do
+    if port_is_free "$port"; then
+      printf '%s\n' "$port"
+      return 0
+    fi
+    port=$((port + 1))
+  done
+  echo "No free TCP port found." >&2
+  exit 1
+}
+
+check_java() {
+  if ! command -v java >/dev/null 2>&1; then
+    echo "Java 24 is required but java was not found in PATH." >&2
+    echo "Install Java 24, then rerun this script." >&2
+    exit 1
+  fi
+  local major
+  major="$(java -version 2>&1 | sed -nE 's/.*version "([0-9]+).*/\1/p' | head -n 1)"
+  if [[ -z "$major" || "$major" -lt 24 ]]; then
+    echo "Java 24 is required. Current java version output:" >&2
+    java -version >&2
+    exit 1
+  fi
+}
+
+build_if_needed() {
+  if [[ -f "$JAR" ]]; then
+    return
+  fi
+  echo "Building the server with Maven Wrapper..."
+  (cd "$REPO_DIR" && ./mvnw -DskipTests package)
+}
+
+echo "opcoach-mcp-mail local setup"
+echo
+check_java
+build_if_needed
+
+SUGGESTED_PROFILE="$(sanitize_profile "${USER:-default}")"
+PROFILE="$(sanitize_profile "$(ask "Profile name" "$SUGGESTED_PROFILE")")"
+CONFIG_FILE="$BASE_DIR/profiles/$PROFILE.properties"
+RUN_DIR="$BASE_DIR/run/$PROFILE"
+SUGGESTED_PORT="$(first_free_port "$DEFAULT_PORT")"
+
+while true; do
+  PORT="$(ask "Local MCP port" "$SUGGESTED_PORT")"
+  if [[ "$PORT" =~ ^[0-9]+$ ]] && (( PORT >= 1 && PORT <= 65535 )); then
+    if port_is_free "$PORT"; then
+      break
+    fi
+    echo "Port $PORT is already in use. Choose another one."
+  else
+    echo "Invalid port."
+  fi
+done
+
+mkdir -p "$(dirname "$CONFIG_FILE")" "$RUN_DIR"
+
+echo
+echo "Configuration file: $CONFIG_FILE"
+echo "Runtime directory:  $RUN_DIR"
+echo "MCP URL for Codex:  http://127.0.0.1:$PORT/mcp"
+echo
+echo "The setup UI will ask for IMAP/SMTP settings and the mailbox password."
+echo "Password input may stay visually blank; that is normal."
+echo
+
+echo "Starting setup UI. Copy the printed URL into your browser."
+MAIL_MCP_CONFIG="$CONFIG_FILE" "$REPO_DIR/bin/setup-ui" --profile "$PROFILE"
+
+echo
+echo "Starting local MCP server..."
+MAIL_MCP_CONFIG="$CONFIG_FILE" \
+MAIL_MCP_RUN_DIR="$RUN_DIR" \
+MAIL_MCP_PORT="$PORT" \
+"$REPO_DIR/bin/start-server" --profile "$PROFILE" --port "$PORT"
+
+echo
+echo "Done."
+echo "Add this MCP URL in Codex:"
+echo "http://127.0.0.1:$PORT/mcp"
