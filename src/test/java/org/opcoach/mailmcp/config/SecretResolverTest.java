@@ -16,7 +16,7 @@ class SecretResolverTest {
         MailConfiguration configuration = configuration("default");
         SecretResolver resolver = new SecretResolver(
                 Map.of(SecretResolver.PASSWORD_ENV, "fake-secret"),
-                profile -> Optional.empty()
+                _ -> Optional.empty()
         );
 
         ResolvedSecret secret = resolver.resolve(configuration);
@@ -33,7 +33,7 @@ class SecretResolverTest {
                         SecretResolver.PASSWORD_ENV, "generic",
                         SecretResolver.PASSWORD_ENV + "_TRAINING", "profile-secret"
                 ),
-                profile -> Optional.empty()
+                _ -> Optional.empty()
         );
 
         ResolvedSecret secret = resolver.resolve(configuration);
@@ -43,7 +43,7 @@ class SecretResolverTest {
 
     @Test
     void failsWhenNoSecretIsAvailable() {
-        SecretResolver resolver = new SecretResolver(Map.of(), profile -> Optional.empty());
+        SecretResolver resolver = new SecretResolver(Map.of(), _ -> Optional.empty());
 
         ConfigurationException exception = assertThrows(ConfigurationException.class, () -> resolver.resolve(configuration("default")));
 

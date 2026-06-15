@@ -41,7 +41,7 @@ public final class MailToolRegistry {
 
         return McpServerFeatures.SyncToolSpecification.builder()
                 .tool(tool)
-                .callHandler((exchange, request) -> callTool(name, handler, request.arguments()))
+                .callHandler((_, request) -> callTool(name, handler, request.arguments()))
                 .build();
     }
 

@@ -15,7 +15,7 @@ import java.util.List;
 final class MimeMessageExtractor {
 
     ExtractedMessage extract(Part root, int maxTextBytes, int maxHtmlBytes) {
-        ExtractState state = new ExtractState(maxTextBytes, maxHtmlBytes);
+        ExtractState state = new ExtractState();
         try {
             visit(root, "part-1", state, true);
         } catch (MessagingException | IOException exception) {
@@ -144,16 +144,9 @@ final class MimeMessageExtractor {
     }
 
     private static final class ExtractState {
-        private final int maxTextBytes;
-        private final int maxHtmlBytes;
         private final StringBuilder text = new StringBuilder();
         private final StringBuilder html = new StringBuilder();
         private final List<AttachmentInfo> attachments = new ArrayList<>();
-
-        private ExtractState(int maxTextBytes, int maxHtmlBytes) {
-            this.maxTextBytes = maxTextBytes;
-            this.maxHtmlBytes = maxHtmlBytes;
-        }
     }
 
     private record FoundAttachment(AttachmentContent content) {

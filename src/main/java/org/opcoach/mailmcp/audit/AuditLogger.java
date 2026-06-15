@@ -7,7 +7,7 @@ public interface AuditLogger {
     void record(AuditEvent event);
 
     static AuditLogger noop() {
-        return event -> {
+        return _ -> {
         };
     }
 
