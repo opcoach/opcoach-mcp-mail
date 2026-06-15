@@ -273,6 +273,8 @@ public final class JakartaImapClient {
     }
 
     private static final class RecipientContainsTerm extends SearchTerm {
+        private static final long serialVersionUID = 1L;
+
         private final String needle;
 
         private RecipientContainsTerm(String needle) {

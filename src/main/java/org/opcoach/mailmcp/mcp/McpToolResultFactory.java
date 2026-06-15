@@ -29,7 +29,7 @@ public final class McpToolResultFactory {
         payload.put("ok", true);
         payload.put("data", data == null ? Map.of() : data);
         return McpSchema.CallToolResult.builder()
-                .content(List.of(new McpSchema.TextContent(write(payload))))
+                .content(List.of(McpSchema.TextContent.builder(write(payload)).build()))
                 .structuredContent(payload)
                 .isError(false)
                 .build();
@@ -43,7 +43,7 @@ public final class McpToolResultFactory {
         payload.put("ok", false);
         payload.put("error", error);
         return McpSchema.CallToolResult.builder()
-                .content(List.of(new McpSchema.TextContent(write(payload))))
+                .content(List.of(McpSchema.TextContent.builder(write(payload)).build()))
                 .structuredContent(payload)
                 .isError(true)
                 .build();
