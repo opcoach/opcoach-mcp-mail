@@ -21,10 +21,10 @@ public final class ConfigurationLoader {
     public MailConfiguration load(String requestedProfile) {
         if (!Files.exists(configPath)) {
             throw new ConfigurationException("""
-                    Configuration absente.
-                    Lancez ./mvnw -Psetup clean verify pour créer un profil local.
-                    Le mot de passe sera stocké dans le trousseau du système.
-                    Fichier attendu: %s
+                    Missing configuration.
+                    Run ./mvnw -Psetup clean verify to create a local profile.
+                    The password will be stored in the system keychain.
+                    Expected file: %s
                     """.formatted(configPath.toAbsolutePath()));
         }
 
@@ -32,12 +32,12 @@ public final class ConfigurationLoader {
         try (InputStream input = Files.newInputStream(configPath)) {
             properties.load(input);
         } catch (IOException exception) {
-            throw new ConfigurationException("Impossible de lire la configuration: " + configPath, exception);
+            throw new ConfigurationException("Unable to read configuration: " + configPath, exception);
         }
 
         String profile = value(properties, "profile", requestedProfile == null || requestedProfile.isBlank() ? "default" : requestedProfile);
         if (requestedProfile != null && !requestedProfile.isBlank() && !requestedProfile.equals(profile)) {
-            throw new ConfigurationException("Profil demandé " + requestedProfile + " différent du profil configuré " + profile + ".");
+            throw new ConfigurationException("Requested profile " + requestedProfile + " differs from configured profile " + profile + ".");
         }
 
         MailEndpoint imap = endpoint(properties, "imap");
@@ -72,14 +72,14 @@ public final class ConfigurationLoader {
         try {
             return Integer.parseInt(rawValue.trim());
         } catch (NumberFormatException exception) {
-            throw new ConfigurationException("Port invalide pour " + key + ": " + rawValue);
+            throw new ConfigurationException("Invalid port for " + key + ": " + rawValue);
         }
     }
 
     private static String required(Properties properties, String key) {
         String value = properties.getProperty(key);
         if (value == null || value.isBlank()) {
-            throw new ConfigurationException("Champ de configuration manquant: " + key);
+            throw new ConfigurationException("Missing configuration field: " + key);
         }
         return value.trim();
     }

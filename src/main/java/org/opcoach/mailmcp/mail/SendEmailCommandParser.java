@@ -32,19 +32,19 @@ public final class SendEmailCommandParser {
             return List.of();
         }
         if (!(value instanceof List<?> rawAttachments)) {
-            throw new IllegalArgumentException("attachments doit être un tableau.");
+            throw new IllegalArgumentException("attachments must be an array.");
         }
         List<AttachmentPayload> attachments = new ArrayList<>();
         for (Object rawAttachment : rawAttachments) {
             if (!(rawAttachment instanceof Map<?, ?> map)) {
-                throw new IllegalArgumentException("Chaque pièce jointe doit être un objet.");
+                throw new IllegalArgumentException("Each attachment must be an object.");
             }
             String filename = required(map, "filename");
             String contentType = optional(map, "contentType", "application/octet-stream");
             String contentBase64 = required(map, "contentBase64");
             byte[] decoded = Base64.getDecoder().decode(contentBase64);
             if (decoded.length > limits.maxAttachmentBytes()) {
-                throw new IllegalArgumentException("Pièce jointe trop volumineuse: " + filename);
+                throw new IllegalArgumentException("Attachment is too large: " + filename);
             }
             attachments.add(new AttachmentPayload(filename, contentType, decoded));
         }
@@ -67,7 +67,7 @@ public final class SendEmailCommandParser {
             }
             return List.copyOf(addresses);
         }
-        throw new IllegalArgumentException("Les destinataires doivent être une chaîne ou un tableau.");
+        throw new IllegalArgumentException("Recipients must be a string or an array.");
     }
 
     private static List<String> splitAddresses(String raw) {
@@ -91,7 +91,7 @@ public final class SendEmailCommandParser {
     private static String required(Map<?, ?> map, String key) {
         Object value = map.get(key);
         if (value == null || value.toString().isBlank()) {
-            throw new IllegalArgumentException("Champ de pièce jointe manquant: " + key);
+            throw new IllegalArgumentException("Missing attachment field: " + key);
         }
         return value.toString();
     }

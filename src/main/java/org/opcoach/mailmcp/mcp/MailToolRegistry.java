@@ -21,11 +21,11 @@ public final class MailToolRegistry {
 
     public List<McpServerFeatures.SyncToolSpecification> toolSpecifications() {
         return List.of(
-                tool(MailToolNames.SEND_EMAIL, "Envoie un email MIME via SMTP.", McpToolSchemas.sendEmail(), mailToolService::sendEmail),
-                tool(MailToolNames.LIST_MAILBOXES, "Liste les dossiers IMAP disponibles.", McpToolSchemas.listMailboxes(), mailToolService::listMailboxes),
-                tool(MailToolNames.SEARCH_MESSAGES, "Recherche des emails avec une limite prudente.", McpToolSchemas.searchMessages(), mailToolService::searchMessages),
-                tool(MailToolNames.GET_MESSAGE, "Lit un message précis par UID IMAP.", McpToolSchemas.getMessage(), mailToolService::getMessage),
-                tool(MailToolNames.GET_ATTACHMENT, "Récupère explicitement une pièce jointe par identifiant.", McpToolSchemas.getAttachment(), mailToolService::getAttachment)
+                tool(MailToolNames.SEND_EMAIL, "Sends a MIME email through SMTP.", McpToolSchemas.sendEmail(), mailToolService::sendEmail),
+                tool(MailToolNames.LIST_MAILBOXES, "Lists available IMAP folders.", McpToolSchemas.listMailboxes(), mailToolService::listMailboxes),
+                tool(MailToolNames.SEARCH_MESSAGES, "Searches emails with a conservative limit.", McpToolSchemas.searchMessages(), mailToolService::searchMessages),
+                tool(MailToolNames.GET_MESSAGE, "Reads a specific message by IMAP UID.", McpToolSchemas.getMessage(), mailToolService::getMessage),
+                tool(MailToolNames.GET_ATTACHMENT, "Explicitly retrieves an attachment by identifier.", McpToolSchemas.getAttachment(), mailToolService::getAttachment)
         );
     }
 
@@ -51,7 +51,7 @@ public final class MailToolRegistry {
         } catch (IllegalArgumentException | ConfigurationException exception) {
             return resultFactory.failure("invalid_request", exception.getMessage());
         } catch (Exception exception) {
-            return resultFactory.failure("mail_operation_failed", "Échec du tool " + toolName + ": " + exception.getMessage());
+            return resultFactory.failure("mail_operation_failed", "Tool " + toolName + " failed: " + exception.getMessage());
         }
     }
 }

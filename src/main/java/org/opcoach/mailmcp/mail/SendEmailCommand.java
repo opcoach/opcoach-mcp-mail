@@ -18,13 +18,13 @@ public record SendEmailCommand(
         bcc = List.copyOf(bcc == null ? List.of() : bcc);
         attachments = List.copyOf(attachments == null ? List.of() : attachments);
         if (to.isEmpty()) {
-            throw new IllegalArgumentException("sendEmail nécessite au moins un destinataire to.");
+            throw new IllegalArgumentException("sendEmail requires at least one to recipient.");
         }
         if (subject == null || subject.isBlank()) {
-            throw new IllegalArgumentException("sendEmail nécessite un sujet.");
+            throw new IllegalArgumentException("sendEmail requires a subject.");
         }
         if ((textBody == null || textBody.isBlank()) && (htmlBody == null || htmlBody.isBlank())) {
-            throw new IllegalArgumentException("sendEmail nécessite textBody ou htmlBody.");
+            throw new IllegalArgumentException("sendEmail requires textBody or htmlBody.");
         }
     }
 

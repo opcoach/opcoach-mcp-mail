@@ -50,7 +50,7 @@ public final class MailMcpApplication {
                 System.err.println(CliOptions.help());
                 return 2;
             } catch (Exception exception) {
-                LOGGER.error("Erreur de démarrage du serveur MCP mail: {}", SafeErrorMessage.clean(exception.getMessage()));
+                LOGGER.error("Failed to start the mail MCP server: {}", SafeErrorMessage.clean(exception.getMessage()));
                 return 1;
             }
         }
@@ -105,10 +105,10 @@ public final class MailMcpApplication {
                         command = switch (subCommand) {
                             case "setup" -> Command.CONFIG_SETUP;
                             case "set-password" -> Command.CONFIG_SET_PASSWORD;
-                            default -> throw new IllegalArgumentException("Sous-commande config inconnue: " + subCommand);
+                            default -> throw new IllegalArgumentException("Unknown config subcommand: " + subCommand);
                         };
                     }
-                    default -> throw new IllegalArgumentException("Argument inconnu: " + arg + " parmi " + Arrays.toString(args));
+                    default -> throw new IllegalArgumentException("Unknown argument: " + arg + " among " + Arrays.toString(args));
                 }
             }
 
@@ -121,18 +121,18 @@ public final class MailMcpApplication {
 
                     Usage:
                       java -jar target/opcoach-mcp-mail.jar --stdio [--profile default]
-                      java -jar target/opcoach-mcp-mail.jar --http [--host 127.0.0.1] [--port 8095] [--token jeton]
+                      java -jar target/opcoach-mcp-mail.jar --http [--host 127.0.0.1] [--port 8095] [--token token]
                       java -jar target/opcoach-mcp-mail.jar config setup [--profile default]
                       java -jar target/opcoach-mcp-mail.jar config set-password [--profile default]
 
-                    Le mode --stdio est recommandé pour Codex et Claude Desktop.
-                    Le mode --http écoute sur 127.0.0.1 par défaut. Un jeton est obligatoire hors localhost.
+                    --stdio mode is recommended for Codex and Claude Desktop.
+                    --http mode listens on 127.0.0.1 by default. A token is required outside localhost.
                     """;
         }
 
         private static String requireValue(String[] args, int index, String option) {
             if (index >= args.length || args[index].startsWith("--")) {
-                throw new IllegalArgumentException("Valeur manquante pour " + option);
+                throw new IllegalArgumentException("Missing value for " + option);
             }
             return args[index];
         }
@@ -141,11 +141,11 @@ public final class MailMcpApplication {
             try {
                 int port = Integer.parseInt(value);
                 if (port < 1 || port > 65535) {
-                    throw new IllegalArgumentException("Le port HTTP doit être compris entre 1 et 65535.");
+                    throw new IllegalArgumentException("HTTP port must be between 1 and 65535.");
                 }
                 return port;
             } catch (NumberFormatException exception) {
-                throw new IllegalArgumentException("Port HTTP invalide: " + value);
+                throw new IllegalArgumentException("Invalid HTTP port: " + value);
             }
         }
     }

@@ -19,7 +19,7 @@ final class MimeMessageExtractor {
         try {
             visit(root, "part-1", state, true);
         } catch (MessagingException | IOException exception) {
-            throw new MailOperationException("Impossible d'extraire le message MIME: " + exception.getMessage(), exception);
+            throw new MailOperationException("Unable to extract the MIME message: " + exception.getMessage(), exception);
         }
         return new ExtractedMessage(
                 DataLimiter.truncateUtf8(state.text.toString(), maxTextBytes),
@@ -32,11 +32,11 @@ final class MimeMessageExtractor {
         try {
             FoundAttachment found = findAttachment(root, "part-1", requestedId, maxBytes, true);
             if (found == null) {
-                throw new IllegalArgumentException("Pièce jointe introuvable: " + requestedId);
+                throw new IllegalArgumentException("Attachment not found: " + requestedId);
             }
             return found.content();
         } catch (MessagingException | IOException exception) {
-            throw new MailOperationException("Impossible de lire la pièce jointe: " + exception.getMessage(), exception);
+            throw new MailOperationException("Unable to read the attachment: " + exception.getMessage(), exception);
         }
     }
 
@@ -82,7 +82,7 @@ final class MimeMessageExtractor {
                 return null;
             }
             if (part.getSize() > maxBytes) {
-                throw new IllegalArgumentException("Pièce jointe trop volumineuse: " + safeFilename(part));
+                throw new IllegalArgumentException("Attachment is too large: " + safeFilename(part));
             }
             byte[] content = DataLimiter.readAtMost(part.getInputStream(), maxBytes);
             AttachmentContent attachment = new AttachmentContent(

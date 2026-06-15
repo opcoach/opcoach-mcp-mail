@@ -45,7 +45,7 @@ public final class JakartaMailSender {
                     configuration.sentMailbox()
             );
         } catch (MessagingException | UnsupportedEncodingException exception) {
-            throw new MailOperationException("Échec de l'envoi SMTP/MIME: " + exception.getMessage(), exception);
+            throw new MailOperationException("SMTP/MIME send failed: " + exception.getMessage(), exception);
         }
     }
 

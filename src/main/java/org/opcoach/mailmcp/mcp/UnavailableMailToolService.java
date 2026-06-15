@@ -7,7 +7,7 @@ import java.util.Map;
 public final class UnavailableMailToolService implements MailToolService {
 
     private static ConfigurationException unavailable() {
-        return new ConfigurationException("Service mail non initialisé. Vérifiez la configuration locale et le mot de passe.");
+        return new ConfigurationException("Mail service is not initialized. Check the local configuration and password.");
     }
 
     @Override

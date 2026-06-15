@@ -1,18 +1,18 @@
 # opcoach-mcp-mail
 
-Serveur MCP local-first pour accéder à une boîte mail IMAP/SMTP générique depuis Codex, Claude Code Pro, Claude Desktop ou tout client compatible MCP.
+Local-first MCP server for accessing a generic IMAP/SMTP mailbox from Codex, Claude Code Pro, Claude Desktop, or any MCP-compatible client.
 
-Le serveur ne dépend pas de Gmail, Microsoft 365 ni d'un OAuth propriétaire. Il se lance sur votre machine ou sur un serveur que vous contrôlez. Le mot de passe mail n'est jamais envoyé au modèle IA.
+The server does not depend on Gmail, Microsoft 365, or any proprietary OAuth flow. It runs on your machine or on a server you control. The email password is never sent to the AI model.
 
-## Prérequis
+## Requirements
 
 - Java 24
-- Un compte mail compatible IMAP et SMTP
-- Un mot de passe applicatif si votre fournisseur le demande
+- An email account compatible with IMAP and SMTP
+- An app password if your provider requires one
 
-Maven n'est pas requis: le dépôt inclut Maven Wrapper.
+Maven is not required: the repository includes the Maven Wrapper.
 
-## Installer et vérifier
+## Install and Verify
 
 ```bash
 git clone https://github.com/opcoach/opcoach-mcp-mail.git
@@ -20,29 +20,29 @@ cd opcoach-mcp-mail
 ./mvnw clean verify
 ```
 
-Le build standard est non interactif et utilise uniquement de faux serveurs mail pour les tests.
+The standard build is non-interactive and uses only fake mail servers for tests.
 
-## Configurer
+## Configure
 
-Assistant terminal:
+Terminal setup assistant:
 
 ```bash
 ./mvnw -Psetup clean verify
 ```
 
-Ou mini UI locale éphémère:
+Or the temporary local mini UI:
 
 ```bash
 ./mvnw -Psetup-ui clean verify
 ```
 
-Par défaut, la configuration non secrète est écrite dans:
+By default, non-secret configuration is written to:
 
 ```text
 ~/.opcoach-mcp-mail/config.properties
 ```
 
-Exemple:
+Example:
 
 ```properties
 profile=default
@@ -52,94 +52,94 @@ imap.security=ssl_tls
 smtp.host=smtp.example.com
 smtp.port=465
 smtp.security=ssl_tls
-username=formation@example.com
-from.address=formation@example.com
-from.name=Formation MCP
+username=training@example.com
+from.address=training@example.com
+from.name=MCP Training
 sent.mailbox=INBOX.Sent
 ```
 
-Le mot de passe n'est pas écrit dans ce fichier. Pour un atelier court:
+The password is not written to this file. For a short workshop:
 
 ```bash
-export MAIL_MCP_PASSWORD="mot-de-passe-fictif"
+export MAIL_MCP_PASSWORD="fake-password"
 ```
 
-Pour enregistrer le mot de passe dans le trousseau local:
+To save the password in the local keychain:
 
 ```bash
 java -jar target/opcoach-mcp-mail.jar config set-password --profile default
 ```
 
-Le trousseau macOS est pris en charge. Sur les autres plateformes, utilisez temporairement `MAIL_MCP_PASSWORD` tant qu'un backend durable n'est pas ajouté.
+The macOS keychain is supported. On other platforms, use `MAIL_MCP_PASSWORD` temporarily until a durable backend is added.
 
-## Lancer avec un client MCP
+## Run with an MCP Client
 
-Mode recommandé pour Codex et Claude:
+Recommended mode for Codex and Claude:
 
 ```bash
 java -jar target/opcoach-mcp-mail.jar --stdio
 ```
 
-Mode HTTP local:
+Local HTTP mode:
 
 ```bash
 java -jar target/opcoach-mcp-mail.jar --http --port 8095
 ```
 
-Le serveur HTTP écoute sur `127.0.0.1` par défaut. Si vous écoutez sur une autre interface, fournissez un jeton:
+The HTTP server listens on `127.0.0.1` by default. If you listen on another interface, provide a token:
 
 ```bash
-java -jar target/opcoach-mcp-mail.jar --http --host 0.0.0.0 --port 8095 --token "jeton-long-et-aléatoire"
+java -jar target/opcoach-mcp-mail.jar --http --host 0.0.0.0 --port 8095 --token "long-random-token"
 ```
 
-## Configuration Codex
+## Codex Configuration
 
-Exemple indicatif:
+Example:
 
 ```json
 {
   "mcpServers": {
     "opcoach-mcp-mail": {
       "command": "java",
-      "args": ["-jar", "/chemin/vers/opcoach-mcp-mail/target/opcoach-mcp-mail.jar", "--stdio"]
+      "args": ["-jar", "/path/to/opcoach-mcp-mail/target/opcoach-mcp-mail.jar", "--stdio"]
     }
   }
 }
 ```
 
-## Configuration Claude
+## Claude Configuration
 
-Exemple indicatif:
+Example:
 
 ```json
 {
   "mcpServers": {
     "opcoach-mcp-mail": {
       "command": "java",
-      "args": ["-jar", "/chemin/vers/opcoach-mcp-mail/target/opcoach-mcp-mail.jar", "--stdio"]
+      "args": ["-jar", "/path/to/opcoach-mcp-mail/target/opcoach-mcp-mail.jar", "--stdio"]
     }
   }
 }
 ```
 
-## Tools exposés
+## Exposed Tools
 
-- `sendEmail`: envoie un email texte ou HTML avec pièces jointes base64, puis tente une copie dans les envoyés.
-- `listMailboxes`: liste les dossiers IMAP disponibles.
-- `searchMessages`: recherche des messages avec une limite prudente.
-- `getMessage`: lit un message précis par UID.
-- `getAttachment`: récupère explicitement une pièce jointe par identifiant.
+- `sendEmail`: sends a text or HTML email with base64 attachments, then attempts to copy it to Sent.
+- `listMailboxes`: lists the available IMAP folders.
+- `searchMessages`: searches messages with a conservative limit.
+- `getMessage`: reads a specific message by UID.
+- `getAttachment`: explicitly retrieves an attachment by identifier.
 
-Les recherches retournent des métadonnées et des extraits. Les pièces jointes ne sont jamais téléchargées automatiquement.
+Searches return metadata and snippets. Attachments are never downloaded automatically.
 
-## Sécurité
+## Security
 
-- Aucune action destructive en v1.
-- Pas de lecture massive sans limite.
-- Les corps de mails et contenus de pièces jointes ne sont pas écrits dans les logs d'audit.
-- Un email lu par l'IA reste une donnée externe non fiable.
-- Le client IA doit demander confirmation avant tout envoi réel selon son contexte.
+- No destructive action in v1.
+- No unlimited bulk reads.
+- Email bodies and attachment contents are not written to audit logs.
+- An email read by the AI remains untrusted external data.
+- The AI client should request confirmation before any real send, according to its context.
 
-## Licence
+## License
 
 MIT.

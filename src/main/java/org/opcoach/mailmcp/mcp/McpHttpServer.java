@@ -59,7 +59,7 @@ public final class McpHttpServer {
         server.setHandler(context);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> stop(server), "opcoach-mcp-mail-http-stop"));
         server.start();
-        LOGGER.info("Serveur MCP HTTP démarré sur http://{}:{}/mcp", host, connector.getLocalPort());
+        LOGGER.info("MCP HTTP server started on http://{}:{}/mcp", host, connector.getLocalPort());
         server.join();
     }
 
@@ -67,7 +67,7 @@ public final class McpHttpServer {
         try {
             server.stop();
         } catch (Exception ignored) {
-            // Arrêt JVM en cours.
+            // JVM shutdown is already in progress.
         }
     }
 
@@ -86,7 +86,7 @@ public final class McpHttpServer {
                 HttpServletResponse httpResponse = (HttpServletResponse) response;
                 httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 httpResponse.setHeader("Cache-Control", "no-store");
-                httpResponse.getWriter().write("Token HTTP manquant ou invalide.");
+                httpResponse.getWriter().write("Missing or invalid HTTP token.");
                 return;
             }
             chain.doFilter(request, response);

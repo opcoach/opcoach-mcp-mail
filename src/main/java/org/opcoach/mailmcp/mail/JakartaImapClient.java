@@ -52,7 +52,7 @@ public final class JakartaImapClient {
                     .sorted(Comparator.comparing(MailboxInfo::fullName))
                     .toList();
         } catch (MessagingException exception) {
-            throw new MailOperationException("Impossible de lister les dossiers IMAP: " + exception.getMessage(), exception);
+            throw new MailOperationException("Unable to list IMAP folders: " + exception.getMessage(), exception);
         }
     }
 
@@ -71,7 +71,7 @@ public final class JakartaImapClient {
                 folder.close(false);
             }
         } catch (MessagingException exception) {
-            throw new MailOperationException("Impossible de rechercher les messages IMAP: " + exception.getMessage(), exception);
+            throw new MailOperationException("Unable to search IMAP messages: " + exception.getMessage(), exception);
         }
     }
 
@@ -101,7 +101,7 @@ public final class JakartaImapClient {
                 folder.close(false);
             }
         } catch (MessagingException exception) {
-            throw new MailOperationException("Impossible de lire le message IMAP: " + exception.getMessage(), exception);
+            throw new MailOperationException("Unable to read the IMAP message: " + exception.getMessage(), exception);
         }
     }
 
@@ -115,7 +115,7 @@ public final class JakartaImapClient {
                 folder.close(false);
             }
         } catch (MessagingException exception) {
-            throw new MailOperationException("Impossible de récupérer la pièce jointe IMAP: " + exception.getMessage(), exception);
+            throw new MailOperationException("Unable to retrieve the IMAP attachment: " + exception.getMessage(), exception);
         }
     }
 
@@ -129,7 +129,7 @@ public final class JakartaImapClient {
     private static Folder open(Store store, String mailbox, int mode) throws MessagingException {
         Folder folder = store.getFolder(mailbox);
         if (!folder.exists()) {
-            throw new IllegalArgumentException("Dossier IMAP introuvable: " + mailbox);
+            throw new IllegalArgumentException("IMAP folder not found: " + mailbox);
         }
         folder.open(mode);
         return folder;
@@ -206,14 +206,14 @@ public final class JakartaImapClient {
                     extracted.attachments()
             );
         } catch (MessagingException exception) {
-            throw new MailOperationException("Impossible de résumer un message IMAP: " + exception.getMessage(), exception);
+            throw new MailOperationException("Unable to summarize an IMAP message: " + exception.getMessage(), exception);
         }
     }
 
     private static Message messageByUid(Folder folder, long uid) throws MessagingException {
         Message message = uidFolder(folder).getMessageByUID(uid);
         if (message == null) {
-            throw new IllegalArgumentException("Message IMAP introuvable pour l'UID: " + uid);
+            throw new IllegalArgumentException("IMAP message not found for UID: " + uid);
         }
         return message;
     }
@@ -222,7 +222,7 @@ public final class JakartaImapClient {
         if (folder instanceof UIDFolder uidFolder) {
             return uidFolder;
         }
-        throw new IllegalArgumentException("Le serveur IMAP ne supporte pas les UID pour ce dossier.");
+        throw new IllegalArgumentException("The IMAP server does not support UIDs for this folder.");
     }
 
     private static String safeSubject(Message message) throws MessagingException {

@@ -28,22 +28,22 @@ public final class SecretResolver {
         String profileSpecificEnv = profileSpecificEnv(configuration.profile());
         String profilePassword = env.get(profileSpecificEnv);
         if (profilePassword != null && !profilePassword.isBlank()) {
-            LOGGER.warn("Mot de passe mail lu depuis {}. Préférez le trousseau local pour un usage durable.", profileSpecificEnv);
+            LOGGER.warn("Mail password read from {}. Prefer the local keychain for durable usage.", profileSpecificEnv);
             return new ResolvedSecret(profilePassword, ResolvedSecret.SecretSource.ENVIRONMENT);
         }
 
         String password = env.get(PASSWORD_ENV);
         if (password != null && !password.isBlank()) {
-            LOGGER.warn("Mot de passe mail lu depuis MAIL_MCP_PASSWORD. Préférez le trousseau local pour un usage durable.");
+            LOGGER.warn("Mail password read from MAIL_MCP_PASSWORD. Prefer the local keychain for durable usage.");
             return new ResolvedSecret(password, ResolvedSecret.SecretSource.ENVIRONMENT);
         }
 
         return secretStore.readPassword(configuration.profile())
                 .map(value -> new ResolvedSecret(value, ResolvedSecret.SecretSource.KEYCHAIN))
                 .orElseThrow(() -> new ConfigurationException("""
-                        Mot de passe absent pour le profil %s.
-                        Lancez java -jar target/opcoach-mcp-mail.jar config set-password --profile %s
-                        ou exportez temporairement MAIL_MCP_PASSWORD.
+                        Missing password for profile %s.
+                        Run java -jar target/opcoach-mcp-mail.jar config set-password --profile %s
+                        or temporarily export MAIL_MCP_PASSWORD.
                         """.formatted(configuration.profile(), configuration.profile())));
     }
 

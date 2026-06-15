@@ -24,7 +24,7 @@ public final class McpRuntime {
 
     public void start() {
         if (options.transportMode() == TransportMode.HTTP && !isLocalhost(options.host()) && isBlank(options.httpToken())) {
-            throw new ConfigurationException("Un jeton HTTP est obligatoire quand le serveur n'écoute pas sur localhost.");
+            throw new ConfigurationException("An HTTP token is required when the server does not listen on localhost.");
         }
         MailConfiguration configuration = ConfigurationLoader.defaultLoader().load(options.profile());
         ResolvedSecret secret = SecretResolver.system().resolve(configuration);
@@ -41,9 +41,9 @@ public final class McpRuntime {
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new ConfigurationException("Serveur MCP interrompu.", exception);
+            throw new ConfigurationException("MCP server interrupted.", exception);
         } catch (Exception exception) {
-            throw new ConfigurationException("Impossible de démarrer le serveur MCP: " + exception.getMessage(), exception);
+            throw new ConfigurationException("Unable to start the MCP server: " + exception.getMessage(), exception);
         }
     }
 

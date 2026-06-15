@@ -26,7 +26,7 @@ public final class McpStdioServer {
             server.closeGracefully();
             stopped.countDown();
         }, "opcoach-mcp-mail-stdio-stop"));
-        LOGGER.info("Serveur MCP stdio démarré.");
+        LOGGER.info("MCP stdio server started.");
         stopped.await();
     }
 }

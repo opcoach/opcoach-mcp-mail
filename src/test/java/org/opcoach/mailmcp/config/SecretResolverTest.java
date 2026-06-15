@@ -15,23 +15,23 @@ class SecretResolverTest {
     void resolvesEnvironmentPassword() {
         MailConfiguration configuration = configuration("default");
         SecretResolver resolver = new SecretResolver(
-                Map.of(SecretResolver.PASSWORD_ENV, "secret-fictif"),
+                Map.of(SecretResolver.PASSWORD_ENV, "fake-secret"),
                 profile -> Optional.empty()
         );
 
         ResolvedSecret secret = resolver.resolve(configuration);
 
-        assertEquals("secret-fictif", secret.value());
+        assertEquals("fake-secret", secret.value());
         assertEquals(ResolvedSecret.SecretSource.ENVIRONMENT, secret.source());
     }
 
     @Test
     void resolvesProfileSpecificEnvironmentPasswordFirst() {
-        MailConfiguration configuration = configuration("formation");
+        MailConfiguration configuration = configuration("training");
         SecretResolver resolver = new SecretResolver(
                 Map.of(
                         SecretResolver.PASSWORD_ENV, "generic",
-                        SecretResolver.PASSWORD_ENV + "_FORMATION", "profile-secret"
+                        SecretResolver.PASSWORD_ENV + "_TRAINING", "profile-secret"
                 ),
                 profile -> Optional.empty()
         );
@@ -55,9 +55,9 @@ class SecretResolverTest {
                 profile,
                 new MailEndpoint("imap.example.com", 993, ConnectionSecurity.SSL_TLS),
                 new MailEndpoint("smtp.example.com", 465, ConnectionSecurity.SSL_TLS),
-                "formation@example.com",
-                "formation@example.com",
-                "Formation MCP",
+                "training@example.com",
+                "training@example.com",
+                "MCP Training",
                 "INBOX.Sent",
                 MailLimits.DEFAULTS,
                 Path.of("config.properties"),

@@ -37,11 +37,11 @@ public final class ConfigurationWriter {
                 Files.createDirectories(parent);
             }
             try (OutputStream output = Files.newOutputStream(configPath)) {
-                properties.store(output, "Configuration locale opcoach-mcp-mail. Aucun secret dans ce fichier.");
+                properties.store(output, "Local opcoach-mcp-mail configuration. No secrets in this file.");
             }
             restrictOwnerReadWrite(configPath);
         } catch (IOException exception) {
-            throw new ConfigurationException("Impossible d'écrire la configuration: " + configPath, exception);
+            throw new ConfigurationException("Unable to write configuration: " + configPath, exception);
         }
     }
 
@@ -53,7 +53,7 @@ public final class ConfigurationWriter {
             );
             Files.setPosixFilePermissions(path, permissions);
         } catch (UnsupportedOperationException | IOException ignored) {
-            // Windows et certains volumes ne supportent pas les permissions POSIX.
+            // Windows and some volumes do not support POSIX permissions.
         }
     }
 }

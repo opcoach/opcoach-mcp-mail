@@ -35,7 +35,7 @@ class JakartaImapClientTest {
         GreenMail greenMail = new GreenMail(imap);
         greenMail.start();
         try {
-            GreenMailUser user = greenMail.setUser("formation@example.com", "formation@example.com", "secret");
+            GreenMailUser user = greenMail.setUser("training@example.com", "training@example.com", "secret");
             user.deliver(messageWithAttachment());
             MailApplicationService service = new MailApplicationService(configuration(greenMail.getImap().getPort()), "secret");
 
@@ -49,7 +49,7 @@ class JakartaImapClientTest {
             Map<String, Object> search = (Map<String, Object>) service.searchMessages(Map.of(
                     "mailbox", "INBOX",
                     "unreadOnly", true,
-                    "subjectContains", "Formation",
+                    "subjectContains", "Training",
                     "limit", 5
             ));
             @SuppressWarnings("unchecked")
@@ -57,7 +57,7 @@ class JakartaImapClientTest {
 
             assertEquals(1, summaries.size());
             MessageSummary summary = summaries.getFirst();
-            assertTrue(summary.snippet().contains("Bonjour"));
+            assertTrue(summary.snippet().contains("Hello"));
             assertFalse(summary.attachments().isEmpty());
 
             MessageDetails details = (MessageDetails) service.getMessage(Map.of(
@@ -65,9 +65,9 @@ class JakartaImapClientTest {
                     "uid", summary.uid(),
                     "includeHtml", false
             ));
-            assertEquals("Formation MCP", details.subject());
+            assertEquals("MCP Training", details.subject());
             assertEquals("", details.htmlBody());
-            assertEquals("programme.pdf", details.attachments().getFirst().filename());
+            assertEquals("program.pdf", details.attachments().getFirst().filename());
 
             AttachmentContent attachment = (AttachmentContent) service.getAttachment(Map.of(
                     "mailbox", "INBOX",
@@ -75,8 +75,8 @@ class JakartaImapClientTest {
                     "attachmentId", details.attachments().getFirst().attachmentId()
             ));
 
-            assertEquals("programme.pdf", attachment.filename());
-            assertEquals("contenu pdf fictif", new String(Base64.getDecoder().decode(attachment.contentBase64()), StandardCharsets.UTF_8));
+            assertEquals("program.pdf", attachment.filename());
+            assertEquals("fake pdf content", new String(Base64.getDecoder().decode(attachment.contentBase64()), StandardCharsets.UTF_8));
         } finally {
             greenMail.stop();
         }
@@ -86,17 +86,17 @@ class JakartaImapClientTest {
         Session session = Session.getInstance(new Properties());
         MimeMessage message = new MimeMessage(session);
         message.setFrom(new InternetAddress("client@example.com"));
-        message.setRecipients(jakarta.mail.Message.RecipientType.TO, InternetAddress.parse("formation@example.com"));
-        message.setSubject("Formation MCP", "UTF-8");
+        message.setRecipients(jakarta.mail.Message.RecipientType.TO, InternetAddress.parse("training@example.com"));
+        message.setSubject("MCP Training", "UTF-8");
 
         MimeMultipart mixed = new MimeMultipart("mixed");
         MimeBodyPart text = new MimeBodyPart();
-        text.setText("Bonjour, je souhaite recevoir le programme.", "UTF-8");
+        text.setText("Hello, I would like to receive the program.", "UTF-8");
         mixed.addBodyPart(text);
 
         MimeBodyPart attachment = new MimeBodyPart();
-        attachment.setDataHandler(new DataHandler(new ByteArrayDataSource("contenu pdf fictif".getBytes(StandardCharsets.UTF_8), "application/pdf")));
-        attachment.setFileName("programme.pdf");
+        attachment.setDataHandler(new DataHandler(new ByteArrayDataSource("fake pdf content".getBytes(StandardCharsets.UTF_8), "application/pdf")));
+        attachment.setFileName("program.pdf");
         mixed.addBodyPart(attachment);
 
         message.setContent(mixed);
@@ -109,9 +109,9 @@ class JakartaImapClientTest {
                 "default",
                 new MailEndpoint("127.0.0.1", imapPort, ConnectionSecurity.NONE),
                 new MailEndpoint("127.0.0.1", 2525, ConnectionSecurity.NONE),
-                "formation@example.com",
-                "formation@example.com",
-                "Formation MCP",
+                "training@example.com",
+                "training@example.com",
+                "MCP Training",
                 "Sent",
                 MailLimits.DEFAULTS,
                 Path.of("config.properties"),

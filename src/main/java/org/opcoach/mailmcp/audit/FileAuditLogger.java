@@ -40,7 +40,7 @@ final class FileAuditLogger implements AuditLogger {
                     StandardOpenOption.APPEND
             );
         } catch (IOException exception) {
-            throw new IllegalStateException("Impossible d'écrire l'audit local: " + path, exception);
+            throw new IllegalStateException("Unable to write local audit log: " + path, exception);
         }
     }
 }

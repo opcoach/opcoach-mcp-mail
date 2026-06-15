@@ -21,49 +21,49 @@ public final class TerminalSetupApplication {
     public static int runInteractive(String profile) {
         TerminalPrompter prompter = new TerminalPrompter();
         Path configPath = ConfigurationPaths.defaultConfigPath();
-        System.out.printf("Assistant de configuration opcoach-mcp-mail pour le profil %s.%n", profile);
-        System.out.printf("Fichier écrit: %s%n", configPath.toAbsolutePath());
+        System.out.printf("opcoach-mcp-mail setup assistant for profile %s.%n", profile);
+        System.out.printf("Written file: %s%n", configPath.toAbsolutePath());
 
         ConfigurationDraft draft = new ConfigurationDraft(
                 profile,
-                prompter.ask("Hôte IMAP", "imap.example.com"),
+                prompter.ask("IMAP host", "imap.example.com"),
                 prompter.askInt("Port IMAP", 993),
-                prompter.askSecurity("Sécurité IMAP", ConnectionSecurity.SSL_TLS),
-                prompter.ask("Hôte SMTP", "smtp.example.com"),
+                prompter.askSecurity("IMAP security", ConnectionSecurity.SSL_TLS),
+                prompter.ask("SMTP host", "smtp.example.com"),
                 prompter.askInt("Port SMTP", 465),
-                prompter.askSecurity("Sécurité SMTP", ConnectionSecurity.SSL_TLS),
-                prompter.ask("Identifiant mail", "formation@example.com"),
-                prompter.ask("Adresse d'expéditeur", "formation@example.com"),
-                prompter.ask("Nom d'expéditeur", "Formation MCP"),
-                prompter.ask("Dossier des envoyés", "INBOX.Sent")
+                prompter.askSecurity("SMTP security", ConnectionSecurity.SSL_TLS),
+                prompter.ask("Email username", "training@example.com"),
+                prompter.ask("Sender address", "training@example.com"),
+                prompter.ask("Sender name", "MCP Training"),
+                prompter.ask("Sent folder", "INBOX.Sent")
         );
 
         new ConfigurationWriter(configPath).write(draft);
-        char[] password = prompter.askPassword("Mot de passe ou mot de passe applicatif");
+        char[] password = prompter.askPassword("Password or app password");
         try {
             if (password.length > 0) {
                 new KeychainSecretStore().writePassword(profile, password);
-                System.out.printf("Mot de passe enregistré dans le trousseau local pour le profil %s.%n", profile);
+                System.out.printf("Password saved in the local keychain for profile %s.%n", profile);
             } else {
-                System.out.println("Aucun mot de passe enregistré. Vous pourrez utiliser MAIL_MCP_PASSWORD temporairement.");
+                System.out.println("No password saved. You can use MAIL_MCP_PASSWORD temporarily.");
             }
         } finally {
             Arrays.fill(password, '\0');
         }
-        System.out.println("Configuration terminée.");
+        System.out.println("Configuration complete.");
         return 0;
     }
 
     public static int runSetPassword(String profile) {
         TerminalPrompter prompter = new TerminalPrompter();
-        char[] password = prompter.askPassword("Mot de passe ou mot de passe applicatif");
+        char[] password = prompter.askPassword("Password or app password");
         if (password.length == 0) {
-            System.err.println("Mot de passe vide: aucun changement effectué.");
+            System.err.println("Empty password: no change made.");
             return 2;
         }
         try {
             new KeychainSecretStore().writePassword(profile, password);
-            System.out.printf("Mot de passe enregistré dans le trousseau local pour le profil %s.%n", profile);
+            System.out.printf("Password saved in the local keychain for profile %s.%n", profile);
             return 0;
         } finally {
             Arrays.fill(password, '\0');
@@ -95,12 +95,12 @@ public final class TerminalSetupApplication {
                 try {
                     int parsed = Integer.parseInt(value);
                     if (parsed < 1 || parsed > 65535) {
-                        System.err.println("Le port doit être compris entre 1 et 65535.");
+                        System.err.println("Port must be between 1 and 65535.");
                     } else {
                         return parsed;
                     }
                 } catch (NumberFormatException exception) {
-                    System.err.println("Veuillez saisir un entier.");
+                    System.err.println("Please enter an integer.");
                 }
             }
         }

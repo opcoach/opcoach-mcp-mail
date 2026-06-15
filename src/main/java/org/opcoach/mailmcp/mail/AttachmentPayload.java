@@ -4,7 +4,7 @@ public record AttachmentPayload(String filename, String contentType, byte[] cont
 
     public AttachmentPayload {
         if (filename == null || filename.isBlank()) {
-            throw new IllegalArgumentException("filename est obligatoire pour une pièce jointe.");
+            throw new IllegalArgumentException("filename is required for an attachment.");
         }
         if (contentType == null || contentType.isBlank()) {
             contentType = "application/octet-stream";

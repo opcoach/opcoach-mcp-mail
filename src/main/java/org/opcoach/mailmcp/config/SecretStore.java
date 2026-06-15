@@ -7,6 +7,6 @@ public interface SecretStore {
     Optional<String> readPassword(String profile);
 
     default void writePassword(String profile, char[] password) {
-        throw new UnsupportedOperationException("Écriture de secret non supportée par ce backend.");
+        throw new UnsupportedOperationException("Secret writes are not supported by this backend.");
     }
 }

@@ -26,9 +26,9 @@ class ConfigurationLoaderTest {
                 smtp.host=smtp.example.com
                 smtp.port=465
                 smtp.security=ssl_tls
-                username=formation@example.com
-                from.address=formation@example.com
-                from.name=Formation MCP
+                username=training@example.com
+                from.address=training@example.com
+                from.name=MCP Training
                 sent.mailbox=INBOX.Sent
                 """);
 
@@ -46,6 +46,6 @@ class ConfigurationLoaderTest {
 
         ConfigurationException exception = assertThrows(ConfigurationException.class, () -> loader.load("default"));
 
-        assertEquals(true, exception.getMessage().contains("Configuration absente"));
+        assertEquals(true, exception.getMessage().contains("Missing configuration"));
     }
 }

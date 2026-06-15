@@ -31,7 +31,7 @@ public record MailLimits(
         requirePositive(maxAttachmentBytes, "limits.maxAttachmentBytes");
         requirePositive(maxResultBytes, "limits.maxResultBytes");
         if (defaultSearchLimit > maxSearchLimit) {
-            throw new ConfigurationException("limits.defaultSearchLimit ne doit pas dépasser limits.maxSearchLimit.");
+            throw new ConfigurationException("limits.defaultSearchLimit must not exceed limits.maxSearchLimit.");
         }
     }
 
@@ -62,13 +62,13 @@ public record MailLimits(
         try {
             return Integer.parseInt(rawValue.trim());
         } catch (NumberFormatException exception) {
-            throw new ConfigurationException("Valeur entière invalide pour " + key + ": " + rawValue);
+            throw new ConfigurationException("Invalid integer value for " + key + ": " + rawValue);
         }
     }
 
     private static void requirePositive(int value, String field) {
         if (value <= 0) {
-            throw new ConfigurationException(field + " doit être strictement positif.");
+            throw new ConfigurationException(field + " must be strictly positive.");
         }
     }
 }

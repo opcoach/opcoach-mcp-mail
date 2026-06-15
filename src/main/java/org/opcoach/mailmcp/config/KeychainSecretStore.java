@@ -37,14 +37,14 @@ public final class KeychainSecretStore implements SecretStore {
     public void writePassword(String profile, char[] password) {
         if (!isMacOs()) {
             throw new ConfigurationException("""
-                    Aucun trousseau durable n'est encore pris en charge automatiquement sur cette plateforme.
-                    Utilisez temporairement MAIL_MCP_PASSWORD ou contribuez un backend Linux/Windows.
+                    No durable keychain is automatically supported on this platform yet.
+                    Use MAIL_MCP_PASSWORD temporarily or contribute a Linux/Windows backend.
                     """);
         }
         String secret = new String(password);
         ProcessResult result = run("security", "add-generic-password", "-a", profile, "-s", SERVICE, "-w", secret, "-U");
         if (result.exitCode() != 0) {
-            throw new ConfigurationException(SafeErrorMessage.clean("Impossible d'enregistrer le mot de passe dans le trousseau: " + result.stderr(), java.util.List.of(secret)));
+            throw new ConfigurationException(SafeErrorMessage.clean("Unable to save password in the keychain: " + result.stderr(), java.util.List.of(secret)));
         }
     }
 
@@ -58,7 +58,7 @@ public final class KeychainSecretStore implements SecretStore {
             boolean finished = process.waitFor(10, TimeUnit.SECONDS);
             if (!finished) {
                 process.destroyForcibly();
-                return new ProcessResult(124, "", "Commande trousseau expirée.");
+                return new ProcessResult(124, "", "Keychain command timed out.");
             }
             String stdout = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             String stderr = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
@@ -67,7 +67,7 @@ public final class KeychainSecretStore implements SecretStore {
             return new ProcessResult(127, "", exception.getMessage());
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            return new ProcessResult(130, "", "Commande trousseau interrompue.");
+            return new ProcessResult(130, "", "Keychain command interrupted.");
         }
     }
 

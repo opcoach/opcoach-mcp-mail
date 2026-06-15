@@ -50,7 +50,7 @@ public final class MailQueryParser {
         try {
             return Long.parseLong(value);
         } catch (NumberFormatException exception) {
-            throw new IllegalArgumentException("uid doit être un entier IMAP positif.");
+            throw new IllegalArgumentException("uid must be a positive IMAP integer.");
         }
     }
 
@@ -62,7 +62,7 @@ public final class MailQueryParser {
         try {
             return LocalDate.parse(value);
         } catch (DateTimeParseException exception) {
-            throw new IllegalArgumentException(key + " doit être au format yyyy-MM-dd.");
+            throw new IllegalArgumentException(key + " must use yyyy-MM-dd format.");
         }
     }
 
@@ -88,14 +88,14 @@ public final class MailQueryParser {
         try {
             return Integer.parseInt(value.toString());
         } catch (NumberFormatException exception) {
-            throw new IllegalArgumentException(key + " doit être un entier.");
+            throw new IllegalArgumentException(key + " must be an integer.");
         }
     }
 
     private static String required(Map<String, Object> arguments, String key) {
         String value = string(arguments, key, null);
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(key + " est obligatoire.");
+            throw new IllegalArgumentException(key + " is required.");
         }
         return value;
     }

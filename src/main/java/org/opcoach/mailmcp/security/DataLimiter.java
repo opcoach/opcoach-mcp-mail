@@ -22,7 +22,7 @@ public final class DataLimiter {
         while (length > 0 && (bytes[length] & 0xC0) == 0x80) {
             length--;
         }
-        return new String(bytes, 0, length, StandardCharsets.UTF_8) + "\n[contenu tronqué]";
+        return new String(bytes, 0, length, StandardCharsets.UTF_8) + "\n[content truncated]";
     }
 
     public static byte[] readAtMost(InputStream input, int maxBytes) throws IOException {
@@ -33,7 +33,7 @@ public final class DataLimiter {
         while ((read = input.read(buffer)) != -1) {
             total += read;
             if (total > maxBytes) {
-                throw new IllegalArgumentException("Contenu trop volumineux pour la limite configurée.");
+                throw new IllegalArgumentException("Content is too large for the configured limit.");
             }
             output.write(buffer, 0, read);
         }

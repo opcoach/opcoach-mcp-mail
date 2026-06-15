@@ -37,19 +37,19 @@ public final class SetupUiApplication {
         server.createContext("/", exchange -> handle(exchange, profile, token, completed));
         server.start();
         int port = server.getAddress().getPort();
-        System.out.printf("Mini UI locale démarrée sur http://127.0.0.1:%d/?token=%s%n", port, token);
-        System.out.println("Elle s'arrêtera après validation ou expiration.");
+        System.out.printf("Local mini UI started on http://127.0.0.1:%d/?token=%s%n", port, token);
+        System.out.println("It will stop after validation or expiration.");
         boolean done = completed.await(TIMEOUT.toSeconds(), TimeUnit.SECONDS);
         server.stop(0);
         if (!done) {
-            System.out.println("Mini UI expirée sans validation.");
+            System.out.println("Mini UI expired without validation.");
         }
     }
 
     private static void handle(HttpExchange exchange, String profile, String token, CountDownLatch completed) throws IOException {
         try {
             if (!isAuthorized(exchange, token)) {
-                send(exchange, 403, "text/plain; charset=utf-8", "Jeton invalide.");
+                send(exchange, 403, "text/plain; charset=utf-8", "Invalid token.");
                 return;
             }
             if ("GET".equals(exchange.getRequestMethod())) {
@@ -84,7 +84,7 @@ public final class SetupUiApplication {
                 completed.countDown();
                 return;
             }
-            send(exchange, 405, "text/plain; charset=utf-8", "Méthode non supportée.");
+            send(exchange, 405, "text/plain; charset=utf-8", "Unsupported method.");
         } catch (Exception exception) {
             send(exchange, 400, "text/plain; charset=utf-8", SafeErrorMessage.clean(exception.getMessage()));
         }
@@ -101,11 +101,11 @@ public final class SetupUiApplication {
     private static String form(String profile, String token) {
         return """
                 <!doctype html>
-                <html lang="fr">
+                <html lang="en">
                 <head>
                   <meta charset="utf-8">
                   <meta name="viewport" content="width=device-width, initial-scale=1">
-                  <title>Configuration opcoach-mcp-mail</title>
+                  <title>opcoach-mcp-mail configuration</title>
                   <style>
                     body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; color: #1f2937; }
                     label { display: block; margin-top: 1rem; font-weight: 600; }
@@ -114,21 +114,21 @@ public final class SetupUiApplication {
                   </style>
                 </head>
                 <body>
-                  <h1>Configuration mail MCP</h1>
-                  <p>Profil: %s</p>
+                  <h1>MCP mail configuration</h1>
+                  <p>Profile: %s</p>
                   <form method="post" action="/?token=%s" autocomplete="off">
-                    <label>Hôte IMAP<input name="imapHost" value="imap.example.com" required></label>
+                    <label>IMAP host<input name="imapHost" value="imap.example.com" required></label>
                     <label>Port IMAP<input name="imapPort" value="993" type="number" min="1" max="65535" required></label>
-                    <label>Sécurité IMAP<select name="imapSecurity"><option>ssl_tls</option><option>starttls</option><option>none</option></select></label>
-                    <label>Hôte SMTP<input name="smtpHost" value="smtp.example.com" required></label>
+                    <label>IMAP security<select name="imapSecurity"><option>ssl_tls</option><option>starttls</option><option>none</option></select></label>
+                    <label>SMTP host<input name="smtpHost" value="smtp.example.com" required></label>
                     <label>Port SMTP<input name="smtpPort" value="465" type="number" min="1" max="65535" required></label>
-                    <label>Sécurité SMTP<select name="smtpSecurity"><option>ssl_tls</option><option>starttls</option><option>none</option></select></label>
-                    <label>Identifiant mail<input name="username" value="formation@example.com" required></label>
-                    <label>Adresse d'expéditeur<input name="fromAddress" value="formation@example.com" required></label>
-                    <label>Nom d'expéditeur<input name="fromName" value="Formation MCP"></label>
-                    <label>Dossier des envoyés<input name="sentMailbox" value="INBOX.Sent" required></label>
-                    <label>Mot de passe applicatif<input name="password" type="password" autocomplete="new-password"></label>
-                    <button type="submit">Enregistrer</button>
+                    <label>SMTP security<select name="smtpSecurity"><option>ssl_tls</option><option>starttls</option><option>none</option></select></label>
+                    <label>Email username<input name="username" value="training@example.com" required></label>
+                    <label>Sender address<input name="fromAddress" value="training@example.com" required></label>
+                    <label>Sender name<input name="fromName" value="MCP Training"></label>
+                    <label>Sent folder<input name="sentMailbox" value="INBOX.Sent" required></label>
+                    <label>App password<input name="password" type="password" autocomplete="new-password"></label>
+                    <button type="submit">Save</button>
                   </form>
                 </body>
                 </html>
@@ -138,8 +138,8 @@ public final class SetupUiApplication {
     private static String success() {
         return """
                 <!doctype html>
-                <html lang="fr"><head><meta charset="utf-8"><title>Configuration terminée</title></head>
-                <body><h1>Configuration terminée</h1><p>Vous pouvez fermer cet onglet.</p></body></html>
+                <html lang="en"><head><meta charset="utf-8"><title>Configuration complete</title></head>
+                <body><h1>Configuration complete</h1><p>You can close this tab.</p></body></html>
                 """;
     }
 
@@ -160,7 +160,7 @@ public final class SetupUiApplication {
     private static String required(Map<String, String> values, String key) {
         String value = values.get(key);
         if (value == null || value.isBlank()) {
-            throw new ConfigurationException("Champ obligatoire manquant: " + key);
+            throw new ConfigurationException("Missing required field: " + key);
         }
         return value.trim();
     }
@@ -169,7 +169,7 @@ public final class SetupUiApplication {
         try {
             return Integer.parseInt(required(values, key));
         } catch (NumberFormatException exception) {
-            throw new ConfigurationException("Port invalide: " + key);
+            throw new ConfigurationException("Invalid port: " + key);
         }
     }
 

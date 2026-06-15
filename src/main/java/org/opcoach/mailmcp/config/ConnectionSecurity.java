@@ -19,14 +19,14 @@ public enum ConnectionSecurity {
 
     public static ConnectionSecurity parse(String value, String fieldName) {
         if (value == null || value.isBlank()) {
-            throw new ConfigurationException("Champ de configuration manquant: " + fieldName);
+            throw new ConfigurationException("Missing configuration field: " + fieldName);
         }
         String normalized = value.trim().toLowerCase(Locale.ROOT).replace("-", "_");
         return switch (normalized) {
             case "ssl", "ssl_tls", "tls" -> SSL_TLS;
             case "starttls", "start_tls" -> STARTTLS;
             case "none", "plain" -> NONE;
-            default -> throw new ConfigurationException("Sécurité inconnue pour " + fieldName + ": " + value);
+            default -> throw new ConfigurationException("Unknown security value for " + fieldName + ": " + value);
         };
     }
 }

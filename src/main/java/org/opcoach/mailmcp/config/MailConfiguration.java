@@ -21,10 +21,10 @@ public record MailConfiguration(
         require(fromAddress, "from.address");
         require(sentMailbox, "sent.mailbox");
         if (imap == null) {
-            throw new ConfigurationException("Configuration IMAP manquante.");
+            throw new ConfigurationException("Missing IMAP configuration.");
         }
         if (smtp == null) {
-            throw new ConfigurationException("Configuration SMTP manquante.");
+            throw new ConfigurationException("Missing SMTP configuration.");
         }
         if (limits == null) {
             limits = MailLimits.DEFAULTS;
@@ -33,7 +33,7 @@ public record MailConfiguration(
 
     private static void require(String value, String field) {
         if (value == null || value.isBlank()) {
-            throw new ConfigurationException("Champ de configuration manquant: " + field);
+            throw new ConfigurationException("Missing configuration field: " + field);
         }
     }
 }

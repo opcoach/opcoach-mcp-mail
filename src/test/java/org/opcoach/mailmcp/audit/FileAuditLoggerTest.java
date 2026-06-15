@@ -20,12 +20,12 @@ class FileAuditLoggerTest {
         Path audit = tempDir.resolve("audit.log");
         AuditLogger logger = AuditLogger.file(audit);
 
-        logger.record(AuditEvent.success("sendEmail", "Sent", "<id@example.com>", List.of("destinataire@example.com")));
+        logger.record(AuditEvent.success("sendEmail", "Sent", "<id@example.com>", List.of("recipient@example.com")));
 
         String line = Files.readString(audit);
         assertTrue(line.contains("\"tool\":\"sendEmail\""));
-        assertTrue(line.contains("destinataire@example.com"));
-        assertFalse(line.contains("Bonjour, ceci est un corps de mail"));
-        assertFalse(line.contains("secret-fictif"));
+        assertTrue(line.contains("recipient@example.com"));
+        assertFalse(line.contains("Hello, this is an email body"));
+        assertFalse(line.contains("fake-secret"));
     }
 }

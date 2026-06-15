@@ -13,22 +13,22 @@ public final class McpToolSchemas {
     public static Map<String, Object> sendEmail() {
         Map<String, Object> attachment = object(
                 props(
-                        entry("filename", string("Nom de fichier transmis au destinataire.")),
-                        entry("contentType", string("Type MIME de la pièce jointe.")),
-                        entry("contentBase64", string("Contenu base64 de la pièce jointe."))
+                        entry("filename", string("Filename sent to the recipient.")),
+                        entry("contentType", string("Attachment MIME type.")),
+                        entry("contentBase64", string("Base64 attachment content."))
                 ),
                 List.of("filename", "contentBase64")
         );
 
         return object(
                 props(
-                        entry("to", array("Destinataires principaux.", string("Adresse email."))),
-                        entry("cc", array("Destinataires en copie.", string("Adresse email."))),
-                        entry("bcc", array("Destinataires en copie cachée.", string("Adresse email."))),
-                        entry("subject", string("Sujet du message.")),
-                        entry("textBody", string("Corps texte du message.")),
-                        entry("htmlBody", string("Corps HTML du message.")),
-                        entry("attachments", array("Pièces jointes base64 explicites.", attachment))
+                        entry("to", array("Primary recipients.", string("Email address."))),
+                        entry("cc", array("Carbon-copy recipients.", string("Email address."))),
+                        entry("bcc", array("Blind carbon-copy recipients.", string("Email address."))),
+                        entry("subject", string("Message subject.")),
+                        entry("textBody", string("Plain-text message body.")),
+                        entry("htmlBody", string("HTML message body.")),
+                        entry("attachments", array("Explicit base64 attachments.", attachment))
                 ),
                 List.of("to", "subject")
         );
@@ -36,7 +36,7 @@ public final class McpToolSchemas {
 
     public static Map<String, Object> listMailboxes() {
         return object(
-                props(entry("includeSpecialUse", bool("Inclure les attributs spéciaux IMAP si disponibles."))),
+                props(entry("includeSpecialUse", bool("Include IMAP special-use attributes when available."))),
                 List.of()
         );
     }
@@ -44,13 +44,13 @@ public final class McpToolSchemas {
     public static Map<String, Object> searchMessages() {
         return object(
                 props(
-                        entry("mailbox", string("Dossier IMAP à interroger.", "INBOX")),
-                        entry("fromContains", string("Filtre partiel sur l'expéditeur.")),
-                        entry("toContains", string("Filtre partiel sur les destinataires.")),
-                        entry("subjectContains", string("Filtre partiel sur le sujet.")),
-                        entry("since", date("Date minimale au format ISO yyyy-MM-dd.")),
-                        entry("unreadOnly", bool("Limiter aux messages non lus.", false)),
-                        entry("limit", integer("Nombre maximal de messages retournés.", 1, 25, 10))
+                        entry("mailbox", string("IMAP folder to query.", "INBOX")),
+                        entry("fromContains", string("Partial sender filter.")),
+                        entry("toContains", string("Partial recipient filter.")),
+                        entry("subjectContains", string("Partial subject filter.")),
+                        entry("since", date("Minimum date in ISO yyyy-MM-dd format.")),
+                        entry("unreadOnly", bool("Limit to unread messages.", false)),
+                        entry("limit", integer("Maximum number of returned messages.", 1, 25, 10))
                 ),
                 List.of()
         );
@@ -59,10 +59,10 @@ public final class McpToolSchemas {
     public static Map<String, Object> getMessage() {
         return object(
                 props(
-                        entry("mailbox", string("Dossier IMAP contenant le message.", "INBOX")),
-                        entry("uid", string("UID IMAP stable du message.")),
-                        entry("includeHtml", bool("Inclure le corps HTML borné.", false)),
-                        entry("maxBodyBytes", integer("Taille maximale du corps texte retourné.", 1, 100_000, 12_000))
+                        entry("mailbox", string("IMAP folder containing the message.", "INBOX")),
+                        entry("uid", string("Stable IMAP UID for the message.")),
+                        entry("includeHtml", bool("Include the bounded HTML body.", false)),
+                        entry("maxBodyBytes", integer("Maximum returned plain-text body size.", 1, 100_000, 12_000))
                 ),
                 List.of("uid")
         );
@@ -71,10 +71,10 @@ public final class McpToolSchemas {
     public static Map<String, Object> getAttachment() {
         return object(
                 props(
-                        entry("mailbox", string("Dossier IMAP contenant le message.", "INBOX")),
-                        entry("uid", string("UID IMAP stable du message.")),
-                        entry("attachmentId", string("Identifiant de pièce jointe fourni par getMessage.")),
-                        entry("maxBytes", integer("Taille maximale de pièce jointe acceptée.", 1, 10 * 1024 * 1024, 5 * 1024 * 1024))
+                        entry("mailbox", string("IMAP folder containing the message.", "INBOX")),
+                        entry("uid", string("Stable IMAP UID for the message.")),
+                        entry("attachmentId", string("Attachment identifier returned by getMessage.")),
+                        entry("maxBytes", integer("Maximum accepted attachment size.", 1, 10 * 1024 * 1024, 5 * 1024 * 1024))
                 ),
                 List.of("uid", "attachmentId")
         );

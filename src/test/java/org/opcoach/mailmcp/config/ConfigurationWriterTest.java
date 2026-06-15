@@ -26,9 +26,9 @@ class ConfigurationWriterTest {
                 "smtp.example.com",
                 465,
                 ConnectionSecurity.SSL_TLS,
-                "formation@example.com",
-                "formation@example.com",
-                "Formation MCP",
+                "training@example.com",
+                "training@example.com",
+                "MCP Training",
                 "INBOX.Sent"
         );
 
@@ -37,6 +37,6 @@ class ConfigurationWriterTest {
         String content = Files.readString(config);
         assertTrue(content.contains("imap.host=imap.example.com"));
         assertFalse(content.toLowerCase().contains("password"));
-        assertFalse(content.toLowerCase().contains("mot-de-passe"));
+        assertFalse(content.toLowerCase().contains("fake-password"));
     }
 }

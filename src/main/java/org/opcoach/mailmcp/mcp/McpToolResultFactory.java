@@ -53,7 +53,7 @@ public final class McpToolResultFactory {
         try {
             return DataLimiter.truncateUtf8(jsonMapper.writeValueAsString(value), maxResultBytes);
         } catch (IOException exception) {
-            return "{\"ok\":false,\"error\":{\"code\":\"serialization_error\",\"message\":\"Réponse non sérialisable.\"}}";
+            return "{\"ok\":false,\"error\":{\"code\":\"serialization_error\",\"message\":\"Response is not serializable.\"}}";
         }
     }
 }

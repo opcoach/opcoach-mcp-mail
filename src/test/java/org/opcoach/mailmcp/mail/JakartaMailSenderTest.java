@@ -31,19 +31,19 @@ class JakartaMailSenderTest {
         GreenMail greenMail = new GreenMail(new ServerSetup[]{smtp, imap});
         greenMail.start();
         try {
-            greenMail.setUser("formation@example.com", "formation@example.com", "secret");
-            greenMail.setUser("destinataire@example.com", "destinataire@example.com", "secret");
+            greenMail.setUser("training@example.com", "training@example.com", "secret");
+            greenMail.setUser("recipient@example.com", "recipient@example.com", "secret");
             MailConfiguration configuration = configuration(greenMail.getSmtp().getPort(), greenMail.getImap().getPort());
             MailApplicationService service = new MailApplicationService(configuration, "secret");
-            String contentBase64 = Base64.getEncoder().encodeToString("contenu fictif".getBytes(StandardCharsets.UTF_8));
+            String contentBase64 = Base64.getEncoder().encodeToString("fake content".getBytes(StandardCharsets.UTF_8));
 
             SendEmailResult result = (SendEmailResult) service.sendEmail(Map.of(
-                    "to", List.of("destinataire@example.com"),
-                    "subject", "Résultat de traitement",
-                    "textBody", "Bonjour, le traitement est terminé.",
-                    "htmlBody", "<h1>Traitement terminé</h1><p>Le résultat est disponible.</p>",
+                    "to", List.of("recipient@example.com"),
+                    "subject", "Processing result",
+                    "textBody", "Hello, processing is complete.",
+                    "htmlBody", "<h1>Processing complete</h1><p>The result is available.</p>",
                     "attachments", List.of(Map.of(
-                            "filename", "resultat.txt",
+                            "filename", "result.txt",
                             "contentType", "text/plain",
                             "contentBase64", contentBase64
                     ))
@@ -54,7 +54,7 @@ class JakartaMailSenderTest {
             assertNotNull(result.messageId());
             assertTrue(greenMail.waitForIncomingEmail(5_000, 1));
             MimeMessage received = greenMail.getReceivedMessages()[0];
-            assertEquals("Résultat de traitement", received.getSubject());
+            assertEquals("Processing result", received.getSubject());
             assertTrue(received.isMimeType("multipart/*"));
             assertSentCopyExists(configuration, "secret");
         } finally {
@@ -81,9 +81,9 @@ class JakartaMailSenderTest {
                 "default",
                 new MailEndpoint("127.0.0.1", imapPort, ConnectionSecurity.NONE),
                 new MailEndpoint("127.0.0.1", smtpPort, ConnectionSecurity.NONE),
-                "formation@example.com",
-                "formation@example.com",
-                "Formation MCP",
+                "training@example.com",
+                "training@example.com",
+                "MCP Training",
                 "Sent",
                 MailLimits.DEFAULTS,
                 Path.of("config.properties"),

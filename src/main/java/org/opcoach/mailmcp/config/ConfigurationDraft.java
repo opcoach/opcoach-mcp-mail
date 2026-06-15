@@ -22,16 +22,16 @@ public record ConfigurationDraft(
         require(fromAddress, "from.address");
         require(sentMailbox, "sent.mailbox");
         if (imapPort < 1 || imapPort > 65535) {
-            throw new ConfigurationException("Port IMAP invalide: " + imapPort);
+            throw new ConfigurationException("Invalid IMAP port: " + imapPort);
         }
         if (smtpPort < 1 || smtpPort > 65535) {
-            throw new ConfigurationException("Port SMTP invalide: " + smtpPort);
+            throw new ConfigurationException("Invalid SMTP port: " + smtpPort);
         }
     }
 
     private static void require(String value, String field) {
         if (value == null || value.isBlank()) {
-            throw new ConfigurationException("Champ obligatoire manquant: " + field);
+            throw new ConfigurationException("Missing required field: " + field);
         }
     }
 }
