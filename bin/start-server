@@ -8,6 +8,8 @@ RUN_DIR="${MAIL_MCP_RUN_DIR:-$REPO_DIR/.run}"
 PID_FILE="$RUN_DIR/opcoach-mcp-mail.pid"
 LOG_FILE="$RUN_DIR/opcoach-mcp-mail.log"
 
+source "$SCRIPT_DIR/java-runtime"
+
 PROFILE="${MAIL_MCP_PROFILE:-default}"
 HOST="${MAIL_MCP_HOST:-127.0.0.1}"
 PORT="${MAIL_MCP_PORT:-8095}"
@@ -105,11 +107,14 @@ if [[ ! -f "$JAR" ]]; then
     echo "Run ./mvnw -DskipTests package first." >&2
     exit 1
   fi
+  mail_mcp_select_java
+  echo "Using Java: $MAIL_MCP_JAVA"
   echo "Building $JAR ..."
-  (cd "$REPO_DIR" && ./mvnw -DskipTests package)
+  (cd "$REPO_DIR" && mail_mcp_with_java_env ./mvnw -DskipTests package)
 fi
 
-COMMAND=(java -jar "$JAR" --http --host "$HOST" --port "$PORT" --profile "$PROFILE")
+mail_mcp_select_java
+COMMAND=("$MAIL_MCP_JAVA" -jar "$JAR" --http --host "$HOST" --port "$PORT" --profile "$PROFILE")
 if [[ -n "$TOKEN" ]]; then
   COMMAND+=(--token "$TOKEN")
 fi

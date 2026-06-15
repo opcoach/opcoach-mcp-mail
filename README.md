@@ -6,13 +6,17 @@ The server does not depend on Gmail, Microsoft 365, or any proprietary OAuth flo
 
 ## Requirements
 
-- Java 24
 - An email account compatible with IMAP and SMTP
 - An app password if your provider requires one
+- Internet access on first run if Java 24 is not already installed
 
-Maven is not required: the repository includes the Maven Wrapper.
+Maven is not required: the repository includes the Maven Wrapper. For the guided local workflow, Java is not required upfront either. The scripts use an existing Java 24+ runtime when available, or download a local Eclipse Temurin JRE into `.runtime/`.
+
+Manual Maven commands still require Java 24+ unless you run them through the provided scripts.
 
 ## Install and Verify
+
+For development, with Java 24+ already available:
 
 ```bash
 git clone https://github.com/opcoach/opcoach-mcp-mail.git
@@ -21,6 +25,8 @@ cd opcoach-mcp-mail
 ```
 
 The standard build is non-interactive and uses only fake mail servers for tests.
+
+For local usage without preinstalled Java, use the quick local setup below.
 
 ## Quick Local Setup
 
@@ -32,7 +38,7 @@ bin/local-wizard
 
 The wizard:
 
-- checks Java 24;
+- uses Java 24+ if installed, or downloads a local JRE automatically;
 - builds the server with Maven Wrapper if needed;
 - proposes a free local MCP port;
 - starts the setup UI for IMAP/SMTP settings and the mailbox password;
@@ -88,6 +94,8 @@ bin/setup-ui --profile default
 bin/start-server --profile default --port 8095
 bin/stop-server
 ```
+
+`bin/setup-ui`, `bin/start-server`, and `bin/local-wizard` use Java 24+ from the system when available. If Java is missing or older, they download a local Eclipse Temurin JRE into `.runtime/`.
 
 `bin/start-server` runs the HTTP server on `127.0.0.1:8095` by default. It writes the PID file and logs under `.run/`, and builds `target/opcoach-mcp-mail.jar` automatically if it is missing.
 

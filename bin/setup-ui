@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 JAR="$REPO_DIR/target/opcoach-mcp-mail.jar"
 
+source "$SCRIPT_DIR/java-runtime"
+
 PROFILE="${MAIL_MCP_PROFILE:-default}"
 BUILD_IF_MISSING=1
 PROFILE_SET=0
@@ -63,8 +65,11 @@ if [[ ! -f "$JAR" ]]; then
     echo "Run ./mvnw -DskipTests package first." >&2
     exit 1
   fi
+  mail_mcp_select_java
+  echo "Using Java: $MAIL_MCP_JAVA"
   echo "Building $JAR ..."
-  (cd "$REPO_DIR" && ./mvnw -DskipTests package)
+  (cd "$REPO_DIR" && mail_mcp_with_java_env ./mvnw -DskipTests package)
 fi
 
-exec java -cp "$JAR" org.opcoach.mailmcp.config.SetupUiApplication "$PROFILE"
+mail_mcp_select_java
+exec "$MAIL_MCP_JAVA" -cp "$JAR" org.opcoach.mailmcp.config.SetupUiApplication "$PROFILE"

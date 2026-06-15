@@ -7,12 +7,14 @@ JAR="$REPO_DIR/target/opcoach-mcp-mail.jar"
 BASE_DIR="${MAIL_MCP_BASE_DIR:-$HOME/.opcoach-mcp-mail}"
 DEFAULT_PORT="${MAIL_MCP_PORT:-8095}"
 
+source "$SCRIPT_DIR/java-runtime"
+
 usage() {
   cat <<'USAGE'
 Usage: bin/local-wizard
 
 Interactive local setup for non-technical users:
-  1. checks Java,
+  1. uses Java 24 if installed, or downloads a local JRE,
   2. builds the jar with Maven Wrapper if needed,
   3. picks an available MCP port,
   4. prints the setup UI URL to open,
@@ -81,32 +83,18 @@ first_free_port() {
   exit 1
 }
 
-check_java() {
-  if ! command -v java >/dev/null 2>&1; then
-    echo "Java 24 is required but java was not found in PATH." >&2
-    echo "Install Java 24, then rerun this script." >&2
-    exit 1
-  fi
-  local major
-  major="$(java -version 2>&1 | sed -nE 's/.*version "([0-9]+).*/\1/p' | head -n 1)"
-  if [[ -z "$major" || "$major" -lt 24 ]]; then
-    echo "Java 24 is required. Current java version output:" >&2
-    java -version >&2
-    exit 1
-  fi
-}
-
 build_if_needed() {
   if [[ -f "$JAR" ]]; then
     return
   fi
   echo "Building the server with Maven Wrapper..."
-  (cd "$REPO_DIR" && ./mvnw -DskipTests package)
+  (cd "$REPO_DIR" && mail_mcp_with_java_env ./mvnw -DskipTests package)
 }
 
 echo "opcoach-mcp-mail local setup"
 echo
-check_java
+mail_mcp_select_java
+echo "Using Java: $MAIL_MCP_JAVA"
 build_if_needed
 
 SUGGESTED_PROFILE="$(sanitize_profile "${USER:-default}")"

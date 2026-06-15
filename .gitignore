@@ -8,6 +8,7 @@ target/
 # Local configuration, runtime state, and secrets
 .opcoach-mail-mcp/
 .run/
+.runtime/
 config.properties
 *.local.properties
 *.log
