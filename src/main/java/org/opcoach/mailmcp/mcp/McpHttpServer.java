@@ -10,6 +10,7 @@ import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServlet;
 import org.eclipse.jetty.ee10.servlet.FilterHolder;
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.eclipse.jetty.ee10.servlet.ServletHolder;
@@ -52,6 +53,8 @@ public final class McpHttpServer {
 
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
         context.setContextPath("/");
+        context.addServlet(new ServletHolder("health", new HealthServlet()), "/health");
+        context.addServlet(new ServletHolder("healthz", new HealthServlet()), "/healthz");
         context.addServlet(new ServletHolder("mcp", transportProvider), "/*");
         if (token != null && !token.isBlank()) {
             context.addFilter(new FilterHolder(new BearerTokenFilter(token)), "/*", EnumSet.of(DispatcherType.REQUEST));
@@ -71,6 +74,16 @@ public final class McpHttpServer {
         }
     }
 
+    private static final class HealthServlet extends HttpServlet {
+        @Override
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+            response.setStatus(HttpServletResponse.SC_OK);
+            response.setContentType("application/json; charset=utf-8");
+            response.setHeader("Cache-Control", "no-store");
+            response.getWriter().write("{\"status\":\"ok\"}");
+        }
+    }
+
     private static final class BearerTokenFilter implements Filter {
         private final String expectedHeader;
 
@@ -81,6 +94,10 @@ public final class McpHttpServer {
         @Override
         public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
             HttpServletRequest httpRequest = (HttpServletRequest) request;
+            if (isHealthRequest(httpRequest)) {
+                chain.doFilter(request, response);
+                return;
+            }
             String authorization = httpRequest.getHeader("Authorization");
             if (!expectedHeader.equals(authorization)) {
                 HttpServletResponse httpResponse = (HttpServletResponse) response;
@@ -90,6 +107,11 @@ public final class McpHttpServer {
                 return;
             }
             chain.doFilter(request, response);
+        }
+
+        private static boolean isHealthRequest(HttpServletRequest request) {
+            String path = request.getRequestURI();
+            return "/health".equals(path) || "/healthz".equals(path);
         }
     }
 }
