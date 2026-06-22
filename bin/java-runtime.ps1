@@ -83,6 +83,15 @@ function Set-MailMcpJavaHome {
     $script:MailMcpJava = Join-Path $JavaHome "bin\java.exe"
 }
 
+function Get-MailMcpGuiJava {
+    Select-MailMcpJava
+    $javaw = Join-Path $script:MailMcpJavaHome "bin\javaw.exe"
+    if (Test-Path $javaw) {
+        return $javaw
+    }
+    return $script:MailMcpJava
+}
+
 function Get-MailMcpDirectorySizeMb {
     param([Parameter(Mandatory = $true)][string]$Path)
 

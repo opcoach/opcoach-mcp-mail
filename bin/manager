@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+JAR="$REPO_DIR/target/opcoach-mcp-mail.jar"
+
+source "$SCRIPT_DIR/java-runtime"
+
+if [[ ! -f "$JAR" ]]; then
+  echo "Building the server with Maven Wrapper..."
+  (cd "$REPO_DIR" && mail_mcp_with_java_env ./mvnw -DskipTests package)
+fi
+
+mail_mcp_select_java
+exec "$MAIL_MCP_JAVA" -jar "$JAR" manager

@@ -28,13 +28,13 @@ public final class SecretResolver {
         String profileSpecificEnv = profileSpecificEnv(configuration.profile());
         String profilePassword = env.get(profileSpecificEnv);
         if (profilePassword != null && !profilePassword.isBlank()) {
-            LOGGER.warn("Mail password read from {}. Prefer the local keychain for durable usage.", profileSpecificEnv);
+            LOGGER.warn("Mail password read from {}. Prefer the local keychain or Windows DPAPI for durable usage.", profileSpecificEnv);
             return new ResolvedSecret(profilePassword, ResolvedSecret.SecretSource.ENVIRONMENT);
         }
 
         String password = env.get(PASSWORD_ENV);
         if (password != null && !password.isBlank()) {
-            LOGGER.warn("Mail password read from MAIL_MCP_PASSWORD. Prefer the local keychain for durable usage.");
+            LOGGER.warn("Mail password read from MAIL_MCP_PASSWORD. Prefer the local keychain or Windows DPAPI for durable usage.");
             return new ResolvedSecret(password, ResolvedSecret.SecretSource.ENVIRONMENT);
         }
 

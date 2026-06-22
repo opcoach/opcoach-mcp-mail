@@ -18,29 +18,38 @@ Manual Maven commands still require Java 24+ unless you run them through the pro
 
 For local training or non-technical users, start here. Do not run Maven manually for this workflow.
 
+Preferred desktop manager:
+
+```text
+Windows: double-click OPCoach MCP Mail.cmd
+macOS:   double-click OPCoach MCP Mail.command
+```
+
+On Windows, `OPCoach MCP Mail.cmd` shows progress during first-time setup if Java or Maven must be downloaded. After setup, `OPCoach MCP Mail.vbs` starts the same manager without a console window.
+
+The manager opens a Java UI to configure mailboxes, start/stop local MCP servers, and copy the MCP URL for Codex.
+
 On macOS or Linux:
 
 ```bash
-bin/local-wizard
+bin/manager
 ```
 
-On Windows, open PowerShell in the cloned repository and run:
+On Windows, if double-click is blocked, open PowerShell in the cloned repository and run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\bin\local-wizard.ps1
+powershell -ExecutionPolicy Bypass -File .\bin\manager.ps1
 ```
 
-Do not run `mvnw.cmd` for this local workflow on Windows. The PowerShell helper downloads Java and Maven locally when needed, and does not require a preconfigured `JAVA_HOME`.
+Do not run `mvnw.cmd` for this local workflow on Windows. The manager helper downloads Java and Maven locally when needed, and does not require a preconfigured `JAVA_HOME`.
 
-The wizard:
+The manager:
 
 - uses Java 24+ if installed, or downloads a local JDK automatically;
 - builds the server with the configured Maven version if needed;
-- on Windows, can replace the downloaded build JDK with a smaller runtime after compilation;
-- proposes a free local MCP port;
-- collects IMAP/SMTP settings and the mailbox password;
-- starts the local HTTP MCP server;
-- prints the URL to copy into Codex.
+- configures IMAP/SMTP settings and stores the mailbox password locally;
+- starts and stops local HTTP MCP servers;
+- copies the URL to paste into Codex.
 
 At the end, copy the printed URL into Codex, for example:
 
@@ -57,7 +66,7 @@ Credentials: empty
 Headers: empty
 ```
 
-Do not configure Codex with the jar in this local workflow. The script starts the jar; Codex only connects to the local HTTP URL.
+Do not configure Codex with the jar in this local workflow. The manager starts the jar; Codex only connects to the local HTTP URL.
 
 ## Developer Build
 
@@ -111,13 +120,14 @@ Passwords are not written to configuration files. On macOS, they are stored in t
 Main local workflow:
 
 ```bash
-bin/local-wizard
+bin/manager
 ```
 
 Manual helpers:
 
 ```bash
 bin/setup-ui --profile default
+bin/manager
 bin/start-server --profile default --port 8095
 bin/start-all
 bin/stop-server
@@ -128,6 +138,7 @@ bin/stop-server
 Windows helpers:
 
 ```powershell
+.\bin\manager.ps1
 .\bin\local-wizard.ps1
 .\bin\start-all.ps1
 ```

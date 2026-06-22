@@ -1,6 +1,7 @@
 package org.opcoach.mailmcp;
 
 import org.opcoach.mailmcp.config.ConfigurationException;
+import org.opcoach.mailmcp.config.ManagerUiApplication;
 import org.opcoach.mailmcp.config.TerminalSetupApplication;
 import org.opcoach.mailmcp.mcp.McpRuntime;
 import org.opcoach.mailmcp.security.SafeErrorMessage;
@@ -38,6 +39,10 @@ public final class MailMcpApplication {
                 if (options.command() == Command.CONFIG_SET_PASSWORD) {
                     return TerminalSetupApplication.runSetPassword(options.profile());
                 }
+                if (options.command() == Command.MANAGER) {
+                    ManagerUiApplication.main(new String[0]);
+                    return 0;
+                }
                 McpRuntime runtime = McpRuntime.create(options);
                 runtime.start();
                 return 0;
@@ -58,6 +63,7 @@ public final class MailMcpApplication {
 
     public enum Command {
         SERVER,
+        MANAGER,
         CONFIG_SETUP,
         CONFIG_SET_PASSWORD
     }
@@ -100,6 +106,7 @@ public final class MailMcpApplication {
                     case "--host" -> host = requireValue(args, ++index, "--host");
                     case "--port" -> port = parsePort(requireValue(args, ++index, "--port"));
                     case "--token" -> token = requireValue(args, ++index, "--token");
+                    case "manager" -> command = Command.MANAGER;
                     case "config" -> {
                         String subCommand = requireValue(args, ++index, "config");
                         command = switch (subCommand) {
@@ -122,6 +129,7 @@ public final class MailMcpApplication {
                     Usage:
                       java -jar target/opcoach-mcp-mail.jar --stdio [--profile default]
                       java -jar target/opcoach-mcp-mail.jar --http [--host 127.0.0.1] [--port 8095] [--token token]
+                      java -jar target/opcoach-mcp-mail.jar manager
                       java -jar target/opcoach-mcp-mail.jar config setup [--profile default]
                       java -jar target/opcoach-mcp-mail.jar config set-password [--profile default]
 

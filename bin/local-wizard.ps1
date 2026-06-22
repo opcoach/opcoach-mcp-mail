@@ -174,7 +174,8 @@ function Start-MailMcpServer {
         $env:MAIL_MCP_RUN_DIR = $RunDir
         $env:MAIL_MCP_PASSWORD = $Password
         $processArgs = Join-MailMcpProcessArguments -Arguments @("-jar", $Jar, "--http", "--host", "127.0.0.1", "--port", "$Port", "--profile", $Profile)
-        $process = Start-Process -FilePath $script:MailMcpJava -ArgumentList $processArgs -WorkingDirectory $RepoDir -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile -PassThru
+        $javaLauncher = Get-MailMcpGuiJava
+        $process = Start-Process -FilePath $javaLauncher -ArgumentList $processArgs -WorkingDirectory $RepoDir -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile -PassThru
         Set-Content -Path $pidFile -Value $process.Id -Encoding ASCII
         Start-Sleep -Seconds 1
         if ($process.HasExited) {
