@@ -30,6 +30,8 @@ On Windows, open PowerShell in the cloned repository and run:
 powershell -ExecutionPolicy Bypass -File .\bin\local-wizard.ps1
 ```
 
+Do not run `mvnw.cmd` for this local workflow on Windows. The PowerShell helper downloads Java and Maven locally when needed, and does not require a preconfigured `JAVA_HOME`.
+
 The wizard:
 
 - uses Java 24+ if installed, or downloads a local JDK automatically;

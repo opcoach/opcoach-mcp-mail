@@ -197,8 +197,8 @@ Select-MailMcpJava
 Write-Host "Using Java: $script:MailMcpJava"
 
 if (-not (Test-Path $Jar)) {
-    Write-Host "Building the server with Maven Wrapper..."
-    Invoke-MailMcpWithJava (Join-Path $RepoDir "mvnw.cmd") @("-DskipTests", "package")
+    Write-Host "Building the server with local Maven..."
+    Invoke-MailMcpMaven -Arguments @("-DskipTests", "package")
 }
 
 $defaultProfile = ConvertTo-MailMcpProfileName $(if ($env:USERNAME) { $env:USERNAME } else { "default" })
