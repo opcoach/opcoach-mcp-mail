@@ -193,13 +193,15 @@ function Start-MailMcpServer {
 
 Write-Host "opcoach-mcp-mail Windows local setup"
 Write-Host
-Select-MailMcpJava
-Write-Host "Using Java: $script:MailMcpJava"
 
 if (-not (Test-Path $Jar)) {
     Write-Host "Building the server with local Maven..."
     Invoke-MailMcpMaven -Arguments @("-DskipTests", "package")
 }
+
+Optimize-MailMcpLocalJava
+Select-MailMcpJava
+Write-Host "Using Java: $script:MailMcpJava"
 
 $defaultProfile = ConvertTo-MailMcpProfileName $(if ($env:USERNAME) { $env:USERNAME } else { "default" })
 $profile = ConvertTo-MailMcpProfileName (Prompt-MailMcpValue "Profile name" $defaultProfile)

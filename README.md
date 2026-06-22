@@ -35,7 +35,8 @@ Do not run `mvnw.cmd` for this local workflow on Windows. The PowerShell helper 
 The wizard:
 
 - uses Java 24+ if installed, or downloads a local JDK automatically;
-- builds the server with Maven Wrapper if needed;
+- builds the server with the configured Maven version if needed;
+- on Windows, can replace the downloaded build JDK with a smaller runtime after compilation;
 - proposes a free local MCP port;
 - collects IMAP/SMTP settings and the mailbox password;
 - starts the local HTTP MCP server;
@@ -132,6 +133,12 @@ Windows helpers:
 ```
 
 These scripts also use Java 24+ from the system when available. If Java is missing or older, they download a local Eclipse Temurin JDK into `.runtime\`.
+
+The first Windows build still needs a JDK because the project is compiled locally. After that build, the wizard can replace the full local JDK with a smaller `jlink` runtime and remove the JDK copy. To do it later without re-running mailbox setup:
+
+```powershell
+.\bin\compact-runtime.ps1
+```
 
 `bin/start-server` runs the HTTP server on `127.0.0.1:8095` by default. It writes the PID file and logs under `.run/`, and builds `target/opcoach-mcp-mail.jar` automatically if it is missing.
 

@@ -15,7 +15,32 @@ if ($env:MAIL_MCP_RUNTIME_DIR) {
 }
 
 $script:MailMcpJdkDir = Join-Path $script:MailMcpRuntimeDir "temurin-jdk-$script:MailMcpRequiredJava"
+$script:MailMcpCompactRuntimeDir = Join-Path $script:MailMcpRuntimeDir "mail-mcp-runtime-$script:MailMcpRequiredJava"
 $script:MailMcpMavenDir = Join-Path $script:MailMcpRuntimeDir "maven"
+
+function Invoke-MailMcpNativeOutput {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string]$Arguments = ""
+    )
+
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $FilePath
+    $startInfo.Arguments = $Arguments
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.CreateNoWindow = $true
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    [void]$process.Start()
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+
+    return (($stdout + "`n" + $stderr) -split "\r?\n" | Where-Object { $_ })
+}
 
 function Get-MailMcpJavaMajor {
     param([Parameter(Mandatory = $true)][string]$JavaPath)
@@ -24,7 +49,7 @@ function Get-MailMcpJavaMajor {
         return $null
     }
 
-    $output = & $JavaPath -version 2>&1
+    $output = Invoke-MailMcpNativeOutput -FilePath $JavaPath -Arguments "-version"
     foreach ($line in $output) {
         if ($line -match 'version "([0-9]+)') {
             return [int]$Matches[1]
@@ -38,6 +63,39 @@ function Test-MailMcpJavaCompatible {
 
     $major = Get-MailMcpJavaMajor $JavaPath
     return ($null -ne $major -and $major -ge $script:MailMcpRequiredJava)
+}
+
+function Test-MailMcpJdkHomeCompatible {
+    param([Parameter(Mandatory = $true)][string]$JavaHome)
+
+    $java = Join-Path $JavaHome "bin\java.exe"
+    $javac = Join-Path $JavaHome "bin\javac.exe"
+    $jlink = Join-Path $JavaHome "bin\jlink.exe"
+    return ((Test-MailMcpJavaCompatible $java) -and
+        (Test-Path $javac) -and
+        (Test-Path $jlink))
+}
+
+function Set-MailMcpJavaHome {
+    param([Parameter(Mandatory = $true)][string]$JavaHome)
+
+    $script:MailMcpJavaHome = $JavaHome
+    $script:MailMcpJava = Join-Path $JavaHome "bin\java.exe"
+}
+
+function Get-MailMcpDirectorySizeMb {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if (-not (Test-Path $Path)) {
+        return 0
+    }
+
+    $sum = (Get-ChildItem -LiteralPath $Path -Recurse -File -ErrorAction SilentlyContinue |
+        Measure-Object -Property Length -Sum).Sum
+    if ($null -eq $sum) {
+        return 0
+    }
+    return [math]::Round($sum / 1MB, 1)
 }
 
 function Get-MailMcpWindowsArch {
@@ -196,13 +254,131 @@ function Select-MailMcpJava {
         return
     }
 
+    $compactJava = Join-Path $script:MailMcpCompactRuntimeDir "bin\java.exe"
+    if (Test-MailMcpJavaCompatible $compactJava) {
+        Set-MailMcpJavaHome $script:MailMcpCompactRuntimeDir
+        return
+    }
+
     $localJava = Join-Path $script:MailMcpJdkDir "bin\java.exe"
     if (-not (Test-MailMcpJavaCompatible $localJava)) {
         Install-MailMcpJdk
     }
 
-    $script:MailMcpJava = $localJava
-    $script:MailMcpJavaHome = $script:MailMcpJdkDir
+    Set-MailMcpJavaHome $script:MailMcpJdkDir
+}
+
+function Select-MailMcpBuildJava {
+    if ($env:MAIL_MCP_JAVA) {
+        $candidateHome = Split-Path (Split-Path $env:MAIL_MCP_JAVA -Parent) -Parent
+        if (Test-MailMcpJdkHomeCompatible $candidateHome) {
+            $script:MailMcpJava = $env:MAIL_MCP_JAVA
+            $script:MailMcpJavaHome = $candidateHome
+            return
+        }
+    }
+
+    if ($env:JAVA_HOME -and (Test-MailMcpJdkHomeCompatible $env:JAVA_HOME)) {
+        Set-MailMcpJavaHome $env:JAVA_HOME
+        return
+    }
+
+    $systemJava = Get-Command "java.exe" -ErrorAction SilentlyContinue
+    if ($systemJava) {
+        $candidateHome = Split-Path (Split-Path $systemJava.Source -Parent) -Parent
+        if (Test-MailMcpJdkHomeCompatible $candidateHome) {
+            $script:MailMcpJava = $systemJava.Source
+            $script:MailMcpJavaHome = $candidateHome
+            return
+        }
+    }
+
+    if (-not (Test-MailMcpJdkHomeCompatible $script:MailMcpJdkDir)) {
+        Install-MailMcpJdk
+    }
+
+    Set-MailMcpJavaHome $script:MailMcpJdkDir
+}
+
+function New-MailMcpCompactRuntime {
+    if (-not (Test-MailMcpJdkHomeCompatible $script:MailMcpJdkDir)) {
+        throw "Local JDK not found under $script:MailMcpJdkDir."
+    }
+
+    $jlink = Join-Path $script:MailMcpJdkDir "bin\jlink.exe"
+    $tmpRuntime = Join-Path $script:MailMcpRuntimeDir "tmp\mail-mcp-runtime-$script:MailMcpRequiredJava"
+    if (Test-Path $tmpRuntime) {
+        Remove-Item -Recurse -Force $tmpRuntime
+    }
+    if (Test-Path $script:MailMcpCompactRuntimeDir) {
+        Remove-Item -Recurse -Force $script:MailMcpCompactRuntimeDir
+    }
+    New-Item -ItemType Directory -Force -Path (Split-Path $tmpRuntime -Parent) | Out-Null
+
+    $modules = @(
+        "java.se",
+        "jdk.charsets",
+        "jdk.crypto.ec",
+        "jdk.naming.dns",
+        "jdk.unsupported"
+    )
+
+    Write-Host "Creating a compact Java runtime for opcoach-mcp-mail..."
+    & $jlink `
+        "--add-modules" ($modules -join ",") `
+        "--bind-services" `
+        "--strip-debug" `
+        "--no-header-files" `
+        "--no-man-pages" `
+        "--compress" "zip-6" `
+        "--output" $tmpRuntime
+    if ($LASTEXITCODE -ne 0) {
+        throw "jlink failed with exit code $LASTEXITCODE."
+    }
+
+    Move-Item -Path $tmpRuntime -Destination $script:MailMcpCompactRuntimeDir
+    $compactJava = Join-Path $script:MailMcpCompactRuntimeDir "bin\java.exe"
+    if (-not (Test-MailMcpJavaCompatible $compactJava)) {
+        throw "Compact Java runtime was created but java.exe is not usable."
+    }
+}
+
+function Remove-MailMcpLocalJdk {
+    $compactJava = Join-Path $script:MailMcpCompactRuntimeDir "bin\java.exe"
+    if (-not (Test-MailMcpJavaCompatible $compactJava)) {
+        throw "Refusing to remove the local JDK because no compact runtime is available."
+    }
+
+    if (Test-Path $script:MailMcpJdkDir) {
+        Remove-Item -Recurse -Force $script:MailMcpJdkDir
+    }
+
+    $downloadDir = Join-Path $script:MailMcpRuntimeDir "downloads"
+    if (Test-Path $downloadDir) {
+        Get-ChildItem -Path $downloadDir -Filter "temurin-jdk-*.zip" -ErrorAction SilentlyContinue |
+            Remove-Item -Force
+    }
+
+    Set-MailMcpJavaHome $script:MailMcpCompactRuntimeDir
+}
+
+function Optimize-MailMcpLocalJava {
+    if (-not (Test-MailMcpJdkHomeCompatible $script:MailMcpJdkDir)) {
+        return
+    }
+
+    $jdkSize = Get-MailMcpDirectorySizeMb $script:MailMcpJdkDir
+    Write-Host
+    Write-Host "The local JDK used for the build takes about $jdkSize MB."
+    $answer = Read-Host "Replace it with a smaller runtime and remove the full local JDK? [Y/n]"
+    if ($answer -and $answer.Trim().ToLowerInvariant().StartsWith("n")) {
+        return
+    }
+
+    New-MailMcpCompactRuntime
+    $runtimeSize = Get-MailMcpDirectorySizeMb $script:MailMcpCompactRuntimeDir
+    Remove-MailMcpLocalJdk
+    Write-Host "Compact runtime ready: $script:MailMcpCompactRuntimeDir ($runtimeSize MB)."
 }
 
 function Invoke-MailMcpWithJava {
@@ -231,7 +407,7 @@ function Invoke-MailMcpWithJava {
 function Invoke-MailMcpMaven {
     param([string[]]$Arguments = @())
 
-    Select-MailMcpJava
+    Select-MailMcpBuildJava
     $mavenHome = Install-MailMcpMaven
     $classWorlds = Get-ChildItem -Path (Join-Path $mavenHome "boot") -Filter "plexus-classworlds-*.jar" |
         Select-Object -First 1
