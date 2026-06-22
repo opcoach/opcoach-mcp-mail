@@ -9,6 +9,7 @@ public record SearchMessagesQuery(
         String subjectContains,
         LocalDate since,
         boolean unreadOnly,
-        int limit
+        int limit,
+        boolean mailboxExplicit
 ) {
 }

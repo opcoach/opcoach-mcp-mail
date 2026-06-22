@@ -1,6 +1,7 @@
 package org.opcoach.mailmcp.mail;
 
 import jakarta.mail.Address;
+import jakarta.mail.FetchProfile;
 import jakarta.mail.Flags;
 import jakarta.mail.Folder;
 import jakarta.mail.Message;
@@ -13,6 +14,8 @@ import jakarta.mail.search.AndTerm;
 import jakarta.mail.search.ComparisonTerm;
 import jakarta.mail.search.FlagTerm;
 import jakarta.mail.search.FromStringTerm;
+import jakarta.mail.search.OrTerm;
+import jakarta.mail.search.RecipientStringTerm;
 import jakarta.mail.search.ReceivedDateTerm;
 import jakarta.mail.search.SearchTerm;
 import jakarta.mail.search.SubjectTerm;
@@ -34,14 +37,16 @@ public final class JakartaImapClient {
     private final MailConfiguration configuration;
     private final String password;
     private final MimeMessageExtractor extractor = new MimeMessageExtractor();
+    private Store cachedStore;
 
     public JakartaImapClient(MailConfiguration configuration, String password) {
         this.configuration = configuration;
         this.password = password;
     }
 
-    public List<MailboxInfo> listMailboxes(boolean includeSpecialUse) {
-        try (Store store = connect()) {
+    public synchronized List<MailboxInfo> listMailboxes(boolean includeSpecialUse) {
+        try {
+            Store store = store();
             Folder defaultFolder = store.getDefaultFolder();
             Folder[] folders = defaultFolder.list("*");
             List<MailboxInfo> results = new ArrayList<>();
@@ -52,31 +57,34 @@ public final class JakartaImapClient {
                     .sorted(Comparator.comparing(MailboxInfo::fullName))
                     .toList();
         } catch (MessagingException exception) {
+            invalidateStore();
             throw new MailOperationException("Unable to list IMAP folders: " + exception.getMessage(), exception);
         }
     }
 
-    public List<MessageSummary> searchMessages(SearchMessagesQuery query) {
-        try (Store store = connect()) {
+    public synchronized List<MessageSummary> searchMessages(SearchMessagesQuery query) {
+        try {
+            Store store = store();
             Folder folder = open(store, query.mailbox(), Folder.READ_ONLY);
             try {
                 UIDFolder uidFolder = uidFolder(folder);
-                Message[] messages = search(folder, query);
+                Message[] messages = latestMessages(folder, query);
+                prefetchSummaryFields(folder, messages);
                 return Arrays.stream(messages)
-                        .sorted(Comparator.comparing(JakartaImapClient::messageDate).reversed())
-                        .limit(query.limit())
                         .map(message -> summary(uidFolder, message))
                         .toList();
             } finally {
                 folder.close(false);
             }
         } catch (MessagingException exception) {
+            invalidateStore();
             throw new MailOperationException("Unable to search IMAP messages: " + exception.getMessage(), exception);
         }
     }
 
-    public MessageDetails getMessage(GetMessageQuery query) {
-        try (Store store = connect()) {
+    public synchronized MessageDetails getMessage(GetMessageQuery query) {
+        try {
+            Store store = store();
             Folder folder = open(store, query.mailbox(), Folder.READ_ONLY);
             try {
                 Message message = messageByUid(folder, query.uid());
@@ -101,12 +109,14 @@ public final class JakartaImapClient {
                 folder.close(false);
             }
         } catch (MessagingException exception) {
+            invalidateStore();
             throw new MailOperationException("Unable to read the IMAP message: " + exception.getMessage(), exception);
         }
     }
 
-    public AttachmentContent getAttachment(GetAttachmentQuery query) {
-        try (Store store = connect()) {
+    public synchronized AttachmentContent getAttachment(GetAttachmentQuery query) {
+        try {
+            Store store = store();
             Folder folder = open(store, query.mailbox(), Folder.READ_ONLY);
             try {
                 Message message = messageByUid(folder, query.uid());
@@ -115,8 +125,18 @@ public final class JakartaImapClient {
                 folder.close(false);
             }
         } catch (MessagingException exception) {
+            invalidateStore();
             throw new MailOperationException("Unable to retrieve the IMAP attachment: " + exception.getMessage(), exception);
         }
+    }
+
+    private Store store() throws MessagingException {
+        if (cachedStore != null && cachedStore.isConnected()) {
+            return cachedStore;
+        }
+        closeCachedStore();
+        cachedStore = connect();
+        return cachedStore;
     }
 
     private Store connect() throws MessagingException {
@@ -124,6 +144,22 @@ public final class JakartaImapClient {
         Store store = session.getStore(JakartaMailSessions.imapProtocol(configuration.imap()));
         store.connect(configuration.imap().host(), configuration.imap().port(), configuration.username(), password);
         return store;
+    }
+
+    private void invalidateStore() {
+        closeCachedStore();
+        cachedStore = null;
+    }
+
+    private void closeCachedStore() {
+        if (cachedStore == null) {
+            return;
+        }
+        try {
+            cachedStore.close();
+        } catch (MessagingException ignored) {
+            // Best effort cleanup before the next connection attempt.
+        }
     }
 
     private static Folder open(Store store, String mailbox, int mode) throws MessagingException {
@@ -135,9 +171,29 @@ public final class JakartaImapClient {
         return folder;
     }
 
+    private static Message[] latestMessages(Folder folder, SearchMessagesQuery query) throws MessagingException {
+        SearchTerm term = searchTerm(query);
+        Message[] matches;
+        if (term == null) {
+            int messageCount = folder.getMessageCount();
+            if (messageCount <= 0) {
+                return new Message[0];
+            }
+            int start = Math.max(1, messageCount - query.limit() + 1);
+            matches = folder.getMessages(start, messageCount);
+        } else {
+            matches = search(folder, query);
+            if (matches.length > query.limit()) {
+                matches = Arrays.copyOfRange(matches, matches.length - query.limit(), matches.length);
+            }
+        }
+        reverse(matches);
+        return matches;
+    }
+
     private static Message[] search(Folder folder, SearchMessagesQuery query) throws MessagingException {
         SearchTerm term = searchTerm(query);
-        return term == null ? folder.getMessages() : folder.search(term);
+        return term == null ? new Message[0] : folder.search(term);
     }
 
     private static SearchTerm searchTerm(SearchMessagesQuery query) {
@@ -152,7 +208,7 @@ public final class JakartaImapClient {
             terms.add(new FromStringTerm(query.fromContains()));
         }
         if (query.toContains() != null) {
-            terms.add(new RecipientContainsTerm(query.toContains()));
+            terms.add(recipientTerm(query.toContains()));
         }
         if (query.since() != null) {
             terms.add(new ReceivedDateTerm(ComparisonTerm.GE, date(query.since())));
@@ -164,6 +220,36 @@ public final class JakartaImapClient {
             return terms.getFirst();
         }
         return new AndTerm(terms.toArray(SearchTerm[]::new));
+    }
+
+    private static SearchTerm recipientTerm(String value) {
+        return new OrTerm(
+                new OrTerm(
+                        new RecipientStringTerm(Message.RecipientType.TO, value),
+                        new RecipientStringTerm(Message.RecipientType.CC, value)
+                ),
+                new RecipientStringTerm(Message.RecipientType.BCC, value)
+        );
+    }
+
+    private static void reverse(Message[] messages) {
+        for (int left = 0, right = messages.length - 1; left < right; left++, right--) {
+            Message current = messages[left];
+            messages[left] = messages[right];
+            messages[right] = current;
+        }
+    }
+
+    private static void prefetchSummaryFields(Folder folder, Message[] messages) throws MessagingException {
+        if (messages.length == 0) {
+            return;
+        }
+        FetchProfile profile = new FetchProfile();
+        profile.add(FetchProfile.Item.ENVELOPE);
+        profile.add(FetchProfile.Item.FLAGS);
+        profile.add(FetchProfile.Item.CONTENT_INFO);
+        profile.add(UIDFolder.FetchProfileItem.UID);
+        folder.fetch(messages, profile);
     }
 
     private MailboxInfo mailboxInfo(Folder folder, boolean includeSpecialUse) {
@@ -200,6 +286,7 @@ public final class JakartaImapClient {
                     Long.toString(uid),
                     safeSubject(message),
                     addresses(message.getFrom()),
+                    addresses(message.getAllRecipients()),
                     format(messageDate(message)),
                     !message.isSet(Flags.Flag.SEEN),
                     DataLimiter.truncateUtf8(extracted.textBody(), configuration.limits().snippetBytes()),
@@ -272,29 +359,4 @@ public final class JakartaImapClient {
         return DateTimeFormatter.ISO_INSTANT.format(date.toInstant());
     }
 
-    private static final class RecipientContainsTerm extends SearchTerm {
-        private static final long serialVersionUID = 1L;
-
-        private final String needle;
-
-        private RecipientContainsTerm(String needle) {
-            this.needle = needle.toLowerCase(java.util.Locale.ROOT);
-        }
-
-        @Override
-        public boolean match(Message message) {
-            try {
-                Address[] recipients = message.getAllRecipients();
-                if (recipients == null) {
-                    return false;
-                }
-                return Arrays.stream(recipients)
-                        .map(Address::toString)
-                        .map(value -> value.toLowerCase(java.util.Locale.ROOT))
-                        .anyMatch(value -> value.contains(needle));
-            } catch (MessagingException exception) {
-                return false;
-            }
-        }
-    }
 }

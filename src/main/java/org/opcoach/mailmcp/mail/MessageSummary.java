@@ -6,6 +6,7 @@ public record MessageSummary(
         String uid,
         String subject,
         String from,
+        String to,
         String receivedAt,
         boolean unread,
         String snippet,

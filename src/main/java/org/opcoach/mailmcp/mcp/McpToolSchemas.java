@@ -44,9 +44,9 @@ public final class McpToolSchemas {
     public static Map<String, Object> searchMessages() {
         return object(
                 props(
-                        entry("mailbox", string("IMAP folder to query.", "INBOX")),
+                        entry("mailbox", string("IMAP folder to query. Defaults to INBOX, or to the configured Sent folder when only toContains is provided.", "INBOX")),
                         entry("fromContains", string("Partial sender filter.")),
-                        entry("toContains", string("Partial recipient filter.")),
+                        entry("toContains", string("Partial recipient filter. Use this to find recent messages sent to an email address or person.")),
                         entry("subjectContains", string("Partial subject filter.")),
                         entry("since", date("Minimum date in ISO yyyy-MM-dd format.")),
                         entry("unreadOnly", bool("Limit to unread messages.", false)),

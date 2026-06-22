@@ -60,6 +60,18 @@ public final class MailApplicationService implements MailToolService {
         String mailbox = String.valueOf(arguments.getOrDefault("mailbox", "INBOX"));
         try {
             SearchMessagesQuery query = queryParser.search(arguments);
+            if (!query.mailboxExplicit() && query.toContains() != null && query.fromContains() == null) {
+                query = new SearchMessagesQuery(
+                        configuration.sentMailbox(),
+                        query.fromContains(),
+                        query.toContains(),
+                        query.subjectContains(),
+                        query.since(),
+                        query.unreadOnly(),
+                        query.limit(),
+                        false
+                );
+            }
             Object result = Map.of("messages", imapClient.searchMessages(query));
             auditLogger.record(AuditEvent.success(MailToolNames.SEARCH_MESSAGES, query.mailbox(), null, List.of()));
             return result;

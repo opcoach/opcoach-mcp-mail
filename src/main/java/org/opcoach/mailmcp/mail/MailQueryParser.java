@@ -22,7 +22,8 @@ public final class MailQueryParser {
                 string(arguments, "subjectContains", null),
                 date(arguments, "since"),
                 bool(arguments, "unreadOnly", false),
-                limits.boundedSearchLimit(integer(arguments, "limit", limits.defaultSearchLimit()))
+                limits.boundedSearchLimit(integer(arguments, "limit", limits.defaultSearchLimit())),
+                hasText(arguments, "mailbox")
         );
     }
 
@@ -106,5 +107,10 @@ public final class MailQueryParser {
             return defaultValue;
         }
         return value.toString().trim();
+    }
+
+    private static boolean hasText(Map<String, Object> arguments, String key) {
+        Object value = arguments.get(key);
+        return value != null && !value.toString().isBlank();
     }
 }
