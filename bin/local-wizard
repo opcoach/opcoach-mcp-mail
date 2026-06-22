@@ -14,7 +14,7 @@ usage() {
 Usage: bin/local-wizard
 
 Interactive local setup for non-technical users:
-  1. uses Java 24 if installed, or downloads a local JRE,
+  1. uses Java 24 if installed, or downloads a local JDK,
   2. builds the jar with Maven Wrapper if needed,
   3. picks an available MCP port,
   4. prints the setup UI URL to open,

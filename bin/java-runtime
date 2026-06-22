@@ -2,7 +2,7 @@
 
 MAIL_MCP_REQUIRED_JAVA="${MAIL_MCP_REQUIRED_JAVA:-24}"
 MAIL_MCP_RUNTIME_DIR="${MAIL_MCP_RUNTIME_DIR:-$REPO_DIR/.runtime}"
-MAIL_MCP_JRE_DIR="$MAIL_MCP_RUNTIME_DIR/temurin-jre-$MAIL_MCP_REQUIRED_JAVA"
+MAIL_MCP_JDK_DIR="$MAIL_MCP_RUNTIME_DIR/temurin-jdk-$MAIL_MCP_REQUIRED_JAVA"
 
 mail_mcp_java_major() {
   local java_bin="$1"
@@ -55,7 +55,7 @@ mail_mcp_download() {
   return 1
 }
 
-mail_mcp_install_jre() {
+mail_mcp_install_jdk() {
   local os arch archive tmp_dir java_home java_bin
   read -r os arch < <(mail_mcp_detect_platform)
 
@@ -64,15 +64,15 @@ mail_mcp_install_jre() {
     return 1
   fi
 
-  archive="$MAIL_MCP_RUNTIME_DIR/downloads/temurin-jre-$MAIL_MCP_REQUIRED_JAVA-$os-$arch.tar.gz"
-  tmp_dir="$MAIL_MCP_RUNTIME_DIR/tmp/temurin-jre-$MAIL_MCP_REQUIRED_JAVA-$os-$arch"
-  local url="https://api.adoptium.net/v3/binary/latest/$MAIL_MCP_REQUIRED_JAVA/ga/$os/$arch/jre/hotspot/normal/eclipse?project=jdk"
+  archive="$MAIL_MCP_RUNTIME_DIR/downloads/temurin-jdk-$MAIL_MCP_REQUIRED_JAVA-$os-$arch.tar.gz"
+  tmp_dir="$MAIL_MCP_RUNTIME_DIR/tmp/temurin-jdk-$MAIL_MCP_REQUIRED_JAVA-$os-$arch"
+  local url="https://api.adoptium.net/v3/binary/latest/$MAIL_MCP_REQUIRED_JAVA/ga/$os/$arch/jdk/hotspot/normal/eclipse?project=jdk"
 
-  mkdir -p "$(dirname "$archive")" "$tmp_dir" "$(dirname "$MAIL_MCP_JRE_DIR")"
-  rm -rf "$tmp_dir" "$MAIL_MCP_JRE_DIR"
+  mkdir -p "$(dirname "$archive")" "$tmp_dir" "$(dirname "$MAIL_MCP_JDK_DIR")"
+  rm -rf "$tmp_dir" "$MAIL_MCP_JDK_DIR"
   mkdir -p "$tmp_dir"
 
-  echo "Compatible Java $MAIL_MCP_REQUIRED_JAVA was not found. Downloading a local Eclipse Temurin JRE..."
+  echo "Compatible Java $MAIL_MCP_REQUIRED_JAVA was not found. Downloading a local Eclipse Temurin JDK..."
   mail_mcp_download "$url" "$archive"
   tar -xzf "$archive" -C "$tmp_dir"
 
@@ -83,7 +83,7 @@ mail_mcp_install_jre() {
   fi
 
   java_home="$(cd -- "$(dirname -- "$java_bin")/.." && pwd)"
-  mv "$java_home" "$MAIL_MCP_JRE_DIR"
+  mv "$java_home" "$MAIL_MCP_JDK_DIR"
   rm -rf "$tmp_dir"
 }
 
@@ -112,12 +112,12 @@ mail_mcp_select_java() {
     fi
   fi
 
-  if ! mail_mcp_java_is_compatible "$MAIL_MCP_JRE_DIR/bin/java"; then
-    mail_mcp_install_jre
+  if ! mail_mcp_java_is_compatible "$MAIL_MCP_JDK_DIR/bin/java"; then
+    mail_mcp_install_jdk
   fi
 
-  MAIL_MCP_JAVA="$MAIL_MCP_JRE_DIR/bin/java"
-  MAIL_MCP_JAVA_HOME="$MAIL_MCP_JRE_DIR"
+  MAIL_MCP_JAVA="$MAIL_MCP_JDK_DIR/bin/java"
+  MAIL_MCP_JAVA_HOME="$MAIL_MCP_JDK_DIR"
   export MAIL_MCP_JAVA MAIL_MCP_JAVA_HOME
 }
 
