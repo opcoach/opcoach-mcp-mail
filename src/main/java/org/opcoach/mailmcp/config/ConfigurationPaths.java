@@ -6,6 +6,7 @@ import java.util.Map;
 public final class ConfigurationPaths {
 
     public static final String CONFIG_ENV = "MAIL_MCP_CONFIG";
+    public static final String CONFIG_PROPERTY = "mail.mcp.config";
     public static final String HOME_DIR = ".opcoach-mcp-mail";
     public static final String CONFIG_FILE = "config.properties";
     public static final String AUDIT_FILE = "audit.log";
@@ -14,6 +15,10 @@ public final class ConfigurationPaths {
     }
 
     public static Path defaultConfigPath() {
+        String configured = System.getProperty(CONFIG_PROPERTY);
+        if (configured != null && !configured.isBlank()) {
+            return Path.of(configured);
+        }
         return defaultConfigPath(System.getenv());
     }
 
