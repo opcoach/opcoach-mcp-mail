@@ -12,12 +12,13 @@ The project is intentionally focused: provide a local-first MCP bridge for gener
 - Move messages between IMAP folders.
 - Delete messages by moving them to the configured trash folder.
 - Build a self-contained Windows ZIP with `OPCoach MCP Mail.exe`, the application jar, a bundled Windows Java runtime, and a SHA-256 checksum.
+- Sign official Windows release executables with Authenticode before packaging.
 
 ## Planned Improvements
 
 - Publish official GitHub Releases for every training-ready version.
-- Add Authenticode signing for the Windows executable to reduce SmartScreen friction.
-- Add a signed release checklist with checksum verification instructions.
+- Add a signed release checklist with certificate renewal and checksum verification instructions.
+- Improve SmartScreen reputation with a stable signing certificate and regular signed releases.
 - Improve mailbox search latency further with an optional local metadata cache.
 - Add mark-as-read and mark-as-unread tools.
 - Add safer bulk cleanup workflows with explicit review before moving messages.

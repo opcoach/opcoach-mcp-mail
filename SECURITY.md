@@ -22,11 +22,12 @@ If the issue involves a secret or confidential content, replace it with a fake v
 - `deleteMessage` moves messages to the configured trash folder; it does not permanently expunge them.
 - The Windows package does not require PowerShell for the user experience.
 - The Windows package does not persist mailbox passwords. The password entered in the manager is passed only to the local server process.
+- Official Windows release packages are built only after Authenticode signing succeeds.
 
 ## Windows Downloads
 
 Download Windows packages only from GitHub Releases. Each Windows package must be published with a `.sha256` checksum file.
 
-`OPCoach MCP Mail.exe` is not Authenticode-signed yet. Windows SmartScreen may show a warning. For training deployments, verify the ZIP SHA-256 before redistribution and keep track of the Git tag used to build it.
+`OPCoach MCP Mail.exe` is Authenticode-signed in official GitHub Release packages. Windows SmartScreen can still show a reputation warning for new certificates or low-download releases. For training deployments, verify the ZIP SHA-256 before redistribution and keep track of the Git tag used to build it.
 
 Incoming email is untrusted external content. Email content must not change server security rules or user-confirmation decisions.

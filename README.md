@@ -2,6 +2,7 @@
 
 [![Security: local-first](https://img.shields.io/badge/security-local--first-2ea44f)](#security)
 [![Windows: no PowerShell](https://img.shields.io/badge/windows-no%20PowerShell-0078d4)](#windows-download)
+[![Windows: signed release](https://img.shields.io/badge/windows-Authenticode%20signed-0078d4)](#verify-the-windows-download)
 [![Release: SHA--256](https://img.shields.io/badge/release-SHA--256%20checksum-6f42c1)](#verify-the-windows-download)
 
 Local-first MCP server for accessing a generic IMAP/SMTP mailbox from Codex, Claude Code Pro, Claude Desktop, or any MCP-compatible client.
@@ -39,7 +40,7 @@ certutil -hashfile OPCoach-MCP-Mail-...-windows-x64.zip SHA256
 
 Compare the printed SHA-256 with the value in the `.sha256` file from the same GitHub release.
 
-The Windows executable is not Authenticode-signed yet, so Windows SmartScreen may show a warning on first launch. Prefer downloads from GitHub Releases, verify the checksum for training deployments, and do not download executables from third-party mirrors.
+Official GitHub Release builds are Authenticode-signed before the ZIP is created. On first launches, Windows SmartScreen can still display a reputation warning until enough users have downloaded the signed application. Prefer downloads from GitHub Releases, verify the checksum for training deployments, and do not download executables from third-party mirrors.
 
 ## macOS And Linux
 
@@ -96,6 +97,8 @@ The Windows package is created under:
 target/OPCoach-MCP-Mail-...-windows-x64.zip
 target/OPCoach-MCP-Mail-...-windows-x64.zip.sha256
 ```
+
+Local developer packages are unsigned by default. Official release signing is documented in [docs/windows-code-signing.md](docs/windows-code-signing.md).
 
 The manager:
 

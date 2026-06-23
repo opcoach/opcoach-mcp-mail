@@ -30,6 +30,11 @@
         <windows.dist.name>OPCoach-MCP-Mail-${project.version}-windows-x64</windows.dist.name>
         <windows.dist.dir>${project.build.directory}/${windows.dist.name}</windows.dist.dir>
         <windows.runtime.url>https://api.adoptium.net/v3/binary/latest/${maven.compiler.release}/ga/windows/x64/jre/hotspot/normal/eclipse?project=jdk</windows.runtime.url>
+        <windows.sign.skip>true</windows.sign.skip>
+        <windows.sign.tool>signtool</windows.sign.tool>
+        <windows.sign.cert>${project.build.directory}/codesign/opcoach-codesign.pfx</windows.sign.cert>
+        <windows.sign.password></windows.sign.password>
+        <windows.sign.timestampUrl>http://timestamp.digicert.com</windows.sign.timestampUrl>
     </properties>
 
     <dependencyManagement>
@@ -250,6 +255,31 @@
                         <artifactId>exec-maven-plugin</artifactId>
                         <version>3.6.3</version>
                         <executions>
+                            <execution>
+                                <id>sign-windows-exe</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <skip>${windows.sign.skip}</skip>
+                                    <executable>${windows.sign.tool}</executable>
+                                    <arguments>
+                                        <argument>sign</argument>
+                                        <argument>/f</argument>
+                                        <argument>${windows.sign.cert}</argument>
+                                        <argument>/p</argument>
+                                        <argument>${windows.sign.password}</argument>
+                                        <argument>/fd</argument>
+                                        <argument>SHA256</argument>
+                                        <argument>/tr</argument>
+                                        <argument>${windows.sign.timestampUrl}</argument>
+                                        <argument>/td</argument>
+                                        <argument>SHA256</argument>
+                                        <argument>${windows.dist.dir}/OPCoach MCP Mail.exe</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
                             <execution>
                                 <id>archive-windows-dist</id>
                                 <phase>package</phase>

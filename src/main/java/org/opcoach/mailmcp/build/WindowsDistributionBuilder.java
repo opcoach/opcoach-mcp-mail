@@ -71,7 +71,8 @@ public final class WindowsDistributionBuilder {
                 - The password entered in the manager is passed only to the local server process.
                 - MCP HTTP servers listen on 127.0.0.1 by default.
                 - Verify the downloaded ZIP with the published .sha256 file when possible.
-                - This build is not Authenticode-signed yet; Windows SmartScreen may show a warning.
+                - Official GitHub Release builds are Authenticode-signed before packaging.
+                - Locally built packages can be unsigned and should be used only for development tests.
                 """, StandardCharsets.UTF_8);
     }
 
