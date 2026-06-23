@@ -13,7 +13,6 @@ Définir les conditions nécessaires pour publier `opcoach-mcp-mail` en open sou
 - Les assistants de configuration sont activés par profils Maven explicites.
 - Une licence open source doit être choisie avant publication publique.
 - Un workflow GitHub Actions exécute `./mvnw clean verify` sur chaque pull request.
-- Un workflow de release publie le paquet Windows et son checksum SHA-256.
 - Aucune configuration personnelle, aucun secret et aucun exemple réel de boîte mail ne sont publiés.
 
 ## Comportement attendu
@@ -27,6 +26,8 @@ cd opcoach-mcp-mail
 ./mvnw -Psetup clean verify
 java -jar target/opcoach-mcp-mail.jar --stdio
 ```
+
+Sur Windows, le README doit indiquer l'installation préalable du JDK Temurin via MSI officiel, puis l'utilisation de `mvnw.cmd`.
 
 Le dépôt GitHub doit contenir au minimum:
 
@@ -44,10 +45,11 @@ La publication GitHub ne doit pas exiger de compte Gmail, OAuth propriétaire ou
 Pour Windows, la première expérience utilisateur attendue est:
 
 ```text
-Télécharger le ZIP depuis GitHub Releases.
-Décompresser.
-Double-cliquer OPCoach MCP Mail.exe.
-Configurer la boîte mail dans la UI.
+Installer le JDK Temurin 24 si Java n'est pas disponible.
+Cloner le dépôt.
+Lancer mvnw.cmd clean verify.
+Lancer mvnw.cmd -DskipTests package.
+Démarrer le manager avec java -jar target\opcoach-mcp-mail.jar manager.
 Copier l'URL MCP locale dans Codex.
 ```
 
@@ -59,8 +61,7 @@ Copier l'URL MCP locale dans Codex.
 - Le workflow CI ne doit jamais accéder à une vraie boîte mail.
 - Les releases ne doivent contenir que le code, les artefacts compilés et la documentation publique.
 - Le dépôt doit éviter les dépendances inutiles qui compliquent l'audit de sécurité.
-- Tant que l'exécutable Windows n'est pas signé Authenticode, le README et la release doivent mentionner cette limite.
-- Les artefacts Windows doivent être accompagnés d'un fichier `.sha256`.
+- Le dépôt ne publie pas d'exécutable Windows autonome.
 
 ## Exemples fictifs sans secrets
 

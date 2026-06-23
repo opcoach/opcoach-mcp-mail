@@ -1,6 +1,6 @@
 # Roadmap
 
-The project is intentionally focused: provide a local-first MCP bridge for generic IMAP/SMTP mailboxes, with a desktop manager that non-technical users can run without command-line setup on Windows.
+The project is intentionally focused: provide a local-first MCP bridge for generic IMAP/SMTP mailboxes, with a desktop manager launched from a local Java build.
 
 ## Current Scope
 
@@ -11,14 +11,10 @@ The project is intentionally focused: provide a local-first MCP bridge for gener
 - Retrieve attachments only when explicitly requested.
 - Move messages between IMAP folders.
 - Delete messages by moving them to the configured trash folder.
-- Build a self-contained Windows ZIP with `OPCoach MCP Mail.exe`, the application jar, a bundled Windows Java runtime, and a SHA-256 checksum.
-- Sign official Windows release executables with Authenticode before packaging.
+- Build and run locally with Java 24+ and the Maven Wrapper.
 
 ## Planned Improvements
 
-- Publish official GitHub Releases for every training-ready version.
-- Add a signed release checklist with certificate renewal and checksum verification instructions.
-- Improve SmartScreen reputation with a stable signing certificate and regular signed releases.
 - Improve mailbox search latency further with an optional local metadata cache.
 - Add mark-as-read and mark-as-unread tools.
 - Add safer bulk cleanup workflows with explicit review before moving messages.
@@ -33,5 +29,6 @@ The project is intentionally focused: provide a local-first MCP bridge for gener
 - Proprietary Gmail or Microsoft OAuth flows.
 - Cloud-hosted mailbox proxying.
 - Remote HTTP exposure without an explicit bearer token.
+- Self-contained Windows `.exe` distribution.
 
 All future changes must preserve the privacy limits: no secrets in logs, bounded reads, no unbounded mailbox scans, and no automatic attachment retrieval.

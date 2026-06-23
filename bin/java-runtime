@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 
 MAIL_MCP_REQUIRED_JAVA="${MAIL_MCP_REQUIRED_JAVA:-24}"
-MAIL_MCP_RUNTIME_DIR="${MAIL_MCP_RUNTIME_DIR:-$REPO_DIR/.runtime}"
-MAIL_MCP_JDK_DIR="$MAIL_MCP_RUNTIME_DIR/temurin-jdk-$MAIL_MCP_REQUIRED_JAVA"
 
 mail_mcp_java_major() {
   local java_bin="$1"
@@ -17,74 +15,18 @@ mail_mcp_java_is_compatible() {
   [[ -n "$major" ]] && (( major >= MAIL_MCP_REQUIRED_JAVA ))
 }
 
-mail_mcp_detect_platform() {
-  local os arch
-  case "$(uname -s)" in
-    Darwin) os="mac" ;;
-    Linux) os="linux" ;;
-    *)
-      echo "Unsupported operating system for automatic Java download: $(uname -s)" >&2
-      return 1
-      ;;
-  esac
+mail_mcp_java_error() {
+  cat >&2 <<ERROR
+Java JDK $MAIL_MCP_REQUIRED_JAVA or newer was not found.
 
-  case "$(uname -m)" in
-    x86_64|amd64) arch="x64" ;;
-    arm64|aarch64) arch="aarch64" ;;
-    *)
-      echo "Unsupported CPU architecture for automatic Java download: $(uname -m)" >&2
-      return 1
-      ;;
-  esac
+Install Eclipse Temurin JDK $MAIL_MCP_REQUIRED_JAVA, then reopen the terminal.
+Windows x64 MSI:
+https://api.adoptium.net/v3/installer/latest/$MAIL_MCP_REQUIRED_JAVA/ga/windows/x64/jdk/hotspot/normal/eclipse?project=jdk
 
-  printf '%s %s\n' "$os" "$arch"
-}
-
-mail_mcp_download() {
-  local url="$1"
-  local output="$2"
-  if command -v curl >/dev/null 2>&1; then
-    curl -fL --progress-bar "$url" -o "$output"
-    return
-  fi
-  if command -v wget >/dev/null 2>&1; then
-    wget -O "$output" "$url"
-    return
-  fi
-  echo "curl or wget is required to download Java automatically." >&2
-  return 1
-}
-
-mail_mcp_install_jdk() {
-  local os arch archive tmp_dir java_home java_bin
-  read -r os arch < <(mail_mcp_detect_platform)
-
-  if ! command -v tar >/dev/null 2>&1; then
-    echo "tar is required to extract Java automatically." >&2
-    return 1
-  fi
-
-  archive="$MAIL_MCP_RUNTIME_DIR/downloads/temurin-jdk-$MAIL_MCP_REQUIRED_JAVA-$os-$arch.tar.gz"
-  tmp_dir="$MAIL_MCP_RUNTIME_DIR/tmp/temurin-jdk-$MAIL_MCP_REQUIRED_JAVA-$os-$arch"
-  local url="https://api.adoptium.net/v3/binary/latest/$MAIL_MCP_REQUIRED_JAVA/ga/$os/$arch/jdk/hotspot/normal/eclipse?project=jdk"
-
-  mkdir -p "$(dirname "$archive")" "$tmp_dir" "$(dirname "$MAIL_MCP_JDK_DIR")"
-  rm -rf "$tmp_dir" "$MAIL_MCP_JDK_DIR"
-  mkdir -p "$tmp_dir"
-
-  echo "Compatible Java $MAIL_MCP_REQUIRED_JAVA was not found. Downloading a local Eclipse Temurin JDK..."
-  mail_mcp_download "$url" "$archive"
-  tar -xzf "$archive" -C "$tmp_dir"
-
-  java_bin="$(find "$tmp_dir" -path '*/bin/java' -type f -print -quit)"
-  if [[ -z "$java_bin" ]]; then
-    echo "Downloaded Java archive does not contain bin/java." >&2
-    return 1
-  fi
-
-  java_home="$(cd -- "$(dirname -- "$java_bin")/.." && pwd)"
-  mv "$java_home" "$MAIL_MCP_JDK_DIR"
-  rm -rf "$tmp_dir"
+After installation, check:
+  java -version
+  javac -version
+ERROR
 }
 
 mail_mcp_select_java() {
@@ -112,15 +54,13 @@ mail_mcp_select_java() {
     fi
   fi
 
-  if ! mail_mcp_java_is_compatible "$MAIL_MCP_JDK_DIR/bin/java"; then
-    mail_mcp_install_jdk
-  fi
-
-  MAIL_MCP_JAVA="$MAIL_MCP_JDK_DIR/bin/java"
-  MAIL_MCP_JAVA_HOME="$MAIL_MCP_JDK_DIR"
-  export MAIL_MCP_JAVA MAIL_MCP_JAVA_HOME
+  mail_mcp_java_error
+  return 1
 }
 
 mail_mcp_with_java_env() {
+  if [[ -z "${MAIL_MCP_JAVA_HOME:-}" ]]; then
+    mail_mcp_select_java
+  fi
   JAVA_HOME="$MAIL_MCP_JAVA_HOME" PATH="$MAIL_MCP_JAVA_HOME/bin:$PATH" "$@"
 }

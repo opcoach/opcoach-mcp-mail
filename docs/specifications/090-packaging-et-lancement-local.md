@@ -8,7 +8,6 @@ Définir comment un utilisateur ou un stagiaire installe, compile et lance le se
 
 - Le repo inclut Maven Wrapper.
 - Le build produit un jar exécutable.
-- Le profil `-Pwindows-dist` produit un ZIP Windows autonome depuis macOS ou Linux.
 - Le dépôt public doit pouvoir être utilisé après un simple `git clone`.
 - `./mvnw clean verify` reste non interactif pour être compatible avec GitHub Actions et les environnements CI.
 - Un profil Maven explicite `-Psetup` lance l'assistant terminal de configuration.
@@ -16,7 +15,7 @@ Définir comment un utilisateur ou un stagiaire installe, compile et lance le se
 - Le mode `--stdio` est le mode par défaut recommandé pour les clients MCP locaux.
 - Le mode `--http` sert aux tests, aux démonstrations et à certains clients compatibles.
 - En HTTP, le serveur écoute sur `127.0.0.1` par défaut.
-- Le parcours Windows utilisateur final passe par un ZIP de release contenant `OPCoach MCP Mail.exe`, pas par un clone du dépôt.
+- Le parcours Windows repose sur l'installation préalable d'un JDK Temurin, puis sur `mvnw.cmd`.
 
 ## Comportement attendu
 
@@ -26,6 +25,16 @@ Installation:
 git clone https://github.com/opcoach/opcoach-mcp-mail.git
 cd opcoach-mcp-mail
 ./mvnw clean verify
+```
+
+Installation Windows:
+
+```cmd
+git clone https://github.com/opcoach/opcoach-mcp-mail.git
+cd opcoach-mcp-mail
+mvnw.cmd clean verify
+mvnw.cmd -DskipTests package
+java -jar target\opcoach-mcp-mail.jar manager
 ```
 
 Configuration terminal:
@@ -52,19 +61,6 @@ Lancement HTTP local:
 java -jar target/opcoach-mcp-mail.jar --http --port 8095
 ```
 
-Build du paquet Windows depuis macOS ou Linux:
-
-```bash
-bin/build-release
-```
-
-Artefacts attendus:
-
-```text
-target/OPCoach-MCP-Mail-...-windows-x64.zip
-target/OPCoach-MCP-Mail-...-windows-x64.zip.sha256
-```
-
 Le profil `-Psetup` peut poser des questions interactives uniquement quand il est demandé explicitement. Le build standard ne doit jamais bloquer en attente d'une saisie utilisateur.
 
 Si aucune configuration n'existe au lancement du serveur, le message d'erreur doit expliquer la commande de configuration à exécuter, sans demander de secret dans un log.
@@ -78,8 +74,7 @@ Si aucune configuration n'existe au lancement du serveur, le message d'erreur do
 - Les exemples doivent fonctionner sur macOS, Linux et Windows autant que possible.
 - Les commandes de formation ne doivent pas demander de secrets réels dans les supports.
 - Les messages d'erreur au démarrage doivent aider à corriger la configuration.
-- Le paquet Windows doit éviter PowerShell, Git Bash, Maven et Java côté utilisateur final.
-- Tant que l'exécutable Windows n'est pas signé Authenticode, la documentation doit expliquer la vérification SHA-256.
+- Windows nécessite un JDK installé séparément; le README doit pointer vers l'installateur MSI Temurin officiel.
 
 ## Exemples fictifs sans secrets
 

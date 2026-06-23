@@ -1,9 +1,8 @@
 # opcoach-mcp-mail
 
 [![Security: local-first](https://img.shields.io/badge/security-local--first-2ea44f)](#security)
-[![Windows: no PowerShell](https://img.shields.io/badge/windows-no%20PowerShell-0078d4)](#windows-download)
-[![Windows: signed release](https://img.shields.io/badge/windows-Authenticode%20signed-0078d4)](#verify-the-windows-download)
-[![Release: SHA--256](https://img.shields.io/badge/release-SHA--256%20checksum-6f42c1)](#verify-the-windows-download)
+[![Java: 24+](https://img.shields.io/badge/java-24%2B-007396)](#requirements)
+[![Build: Maven Wrapper](https://img.shields.io/badge/build-Maven%20Wrapper-c71a36)](#local-build)
 
 Local-first MCP server for accessing a generic IMAP/SMTP mailbox from Codex, Claude Code Pro, Claude Desktop, or any MCP-compatible client.
 
@@ -13,42 +12,56 @@ The server does not depend on Gmail, Microsoft 365, or any proprietary OAuth flo
 
 - An email account compatible with IMAP and SMTP
 - An app password if your provider requires one
-- Windows users: no Java, Maven, Git, Git Bash, or PowerShell command is required when using the release ZIP
-- macOS/Linux developers: Java 24+ is required for source builds
+- Java JDK 24 or newer
 
-Maven is not required for developers: the repository includes the Maven Wrapper.
+Maven is not required: the repository includes the Maven Wrapper.
 
-## Windows Download
+## Install Java On Windows
 
-For training or non-technical Windows users, do not clone the repository and do not run Maven.
+If `java -version` fails, install Eclipse Temurin JDK 24 with the Windows x64 MSI installer:
 
-1. Open the [latest GitHub release](https://github.com/opcoach/opcoach-mcp-mail/releases/latest).
-2. Download `OPCoach-MCP-Mail-...-windows-x64.zip`.
-3. Extract the ZIP archive.
-4. Double-click `OPCoach MCP Mail.exe`.
-5. Configure the mailbox, click `Start`, then copy the local MCP URL into Codex.
-
-The ZIP contains a Windows Java runtime and the MCP Mail manager. The `.exe` is a small launcher; it does not install a service and it does not require administrator rights.
-
-### Verify The Windows Download
-
-Each release publishes a `.sha256` file next to the ZIP. On Windows, optional verification can be done from Command Prompt:
-
-```cmd
-certutil -hashfile OPCoach-MCP-Mail-...-windows-x64.zip SHA256
+```text
+https://api.adoptium.net/v3/installer/latest/24/ga/windows/x64/jdk/hotspot/normal/eclipse?project=jdk
 ```
 
-Compare the printed SHA-256 with the value in the `.sha256` file from the same GitHub release.
+Install the JDK, not only the JRE. After installation, close and reopen the terminal, then check:
 
-Official GitHub Release builds are Authenticode-signed before the ZIP is created. On first launches, Windows SmartScreen can still display a reputation warning until enough users have downloaded the signed application. Prefer downloads from GitHub Releases, verify the checksum for training deployments, and do not download executables from third-party mirrors.
+```cmd
+java -version
+javac -version
+```
 
-## macOS And Linux
+Both commands should report version 24 or newer.
+
+## Local Build
+
+On Windows Command Prompt:
+
+```cmd
+git clone https://github.com/opcoach/opcoach-mcp-mail.git
+cd opcoach-mcp-mail
+mvnw.cmd clean verify
+mvnw.cmd -DskipTests package
+java -jar target\opcoach-mcp-mail.jar manager
+```
+
+On macOS or Linux:
 
 ```bash
+git clone https://github.com/opcoach/opcoach-mcp-mail.git
+cd opcoach-mcp-mail
+./mvnw clean verify
+./mvnw -DskipTests package
 bin/manager
 ```
 
-The manager opens a Java UI to configure mailboxes, start/stop local MCP servers, and copy the MCP URL for Codex.
+The standard build is non-interactive and uses only fake mail servers for tests.
+
+The manager:
+
+- configures IMAP/SMTP settings;
+- starts and stops local HTTP MCP servers;
+- copies the URL to paste into Codex.
 
 At the end, copy the URL into Codex, for example:
 
@@ -66,45 +79,6 @@ Headers: empty
 ```
 
 Do not configure Codex with the jar in this local workflow. The manager starts the jar; Codex only connects to the local HTTP URL.
-
-## Developer Build
-
-For development, with Java 24+ already available:
-
-```bash
-git clone https://github.com/opcoach/opcoach-mcp-mail.git
-cd opcoach-mcp-mail
-./mvnw clean verify
-```
-
-The standard build is non-interactive and uses only fake mail servers for tests.
-
-To build the Windows distribution ZIP from macOS or Linux:
-
-```bash
-bin/build-release
-```
-
-Equivalent Maven command:
-
-```bash
-./mvnw -Pwindows-dist -DskipTests clean package
-```
-
-The Windows package is created under:
-
-```text
-target/OPCoach-MCP-Mail-...-windows-x64.zip
-target/OPCoach-MCP-Mail-...-windows-x64.zip.sha256
-```
-
-Local developer packages are unsigned by default. Official release signing is documented in [docs/windows-code-signing.md](docs/windows-code-signing.md).
-
-The manager:
-
-- configures IMAP/SMTP settings;
-- starts and stops local HTTP MCP servers;
-- copies the URL to paste into Codex.
 
 ## Multiple Mailboxes
 
@@ -127,15 +101,13 @@ It also registers each local HTTP server under:
 ~/.opcoach-mcp-mail/servers/
 ```
 
-After rebooting the machine, restart every registered server with:
+After rebooting the machine, restart every registered server from the manager, or with:
 
 ```bash
 bin/start-all
 ```
 
-On Windows, reopen `OPCoach MCP Mail.exe`, select each profile, enter the mailbox password, and click `Start`.
-
-Passwords are not written to configuration files. On macOS, they are stored in the local keychain with the profile name. In the Windows release package, passwords are not stored persistently; they are passed only to the local server process when the user starts a profile.
+Passwords are not written to configuration files. On macOS, they are stored in the local keychain with the profile name. On other platforms, use `MAIL_MCP_PASSWORD` temporarily until a durable backend is added.
 
 ## Script Reference
 
