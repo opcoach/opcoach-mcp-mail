@@ -139,6 +139,7 @@ Windows helpers:
 
 ```powershell
 .\bin\manager.ps1
+.\bin\rebuild.ps1
 .\bin\local-wizard.ps1
 .\bin\start-all.ps1
 ```
