@@ -57,11 +57,22 @@ bin/manager
 
 The standard build is non-interactive and uses only fake mail servers for tests.
 
-The manager:
+## Manager
 
-- configures IMAP/SMTP settings;
-- starts and stops local HTTP MCP servers;
-- copies the URL to paste into Codex.
+![OPCoach MCP Mail manager overview](docs/images/manager-overview.png)
+
+The manager is the recommended local workflow. It lets you create mailbox profiles, edit IMAP/SMTP settings, start or stop each local MCP server, and copy the MCP URL to paste into Codex or another MCP client.
+
+The left panel lists registered profiles with their local URL and running status. The right panel edits the selected profile: incoming mail, outgoing mail, identity, local host, and local port. Use `Save and start` when the profile is ready, then `Copy URL` to configure the AI client.
+
+Main actions:
+
+- `New`: create a new mailbox profile.
+- `Save`: save the selected profile without starting it.
+- `Start`: start the selected local MCP server.
+- `Stop`: stop the selected local MCP server.
+- `Copy URL`: copy the local MCP endpoint.
+- `Refresh`: reload server status.
 
 At the end, copy the URL into Codex, for example:
 
