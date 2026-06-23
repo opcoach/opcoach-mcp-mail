@@ -105,14 +105,14 @@ The manager:
 
 ## Multiple Mailboxes
 
-Run the wizard once per mailbox. Each run can use a different profile and a different port:
+Create one profile per mailbox in the manager. Each profile can use a different local port:
 
 ```text
 Mailbox 1 -> http://127.0.0.1:8095/mcp
 Mailbox 2 -> http://127.0.0.1:8096/mcp
 ```
 
-The wizard keeps configuration and runtime files separate by profile under:
+The manager keeps configuration and runtime files separate by profile under:
 
 ```text
 ~/.opcoach-mcp-mail/
@@ -154,7 +154,7 @@ bin/stop-server
 
 `bin/start-server` runs the HTTP server on `127.0.0.1:8095` by default. It writes the PID file and logs under `.run/`, and builds `target/opcoach-mcp-mail.jar` automatically if it is missing.
 
-`bin/start-all` starts every local HTTP server registered by `bin/local-wizard`. Use it after rebooting instead of re-running each mailbox setup.
+`bin/start-all` starts every local HTTP server registered by the manager or by `bin/local-wizard`. Use it after rebooting instead of re-running each mailbox setup.
 
 ## Advanced Jar Usage
 

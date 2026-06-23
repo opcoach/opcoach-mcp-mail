@@ -1,32 +1,32 @@
-# Politique de sécurité
+# Security Policy
 
-Ce projet manipule des boîtes mail. Les rapports de sécurité ne doivent jamais contenir de mot de passe, jeton, extrait confidentiel d'email, pièce jointe réelle ou configuration personnelle complète.
+This project connects to email inboxes. Security reports must never include real passwords, tokens, confidential email excerpts, attachments, or full personal configurations.
 
-## Signaler un problème
+## Reporting A Problem
 
-Ouvrez une issue GitHub avec:
+Open a GitHub issue with:
 
-- la version ou le commit concerné;
-- le système d'exploitation;
-- le mode de lancement utilisé (`--stdio` ou `--http`);
-- une reproduction minimale avec des valeurs fictives.
+- the affected version or commit;
+- the operating system;
+- the launch mode used (`--stdio`, `--http`, or the desktop manager);
+- a minimal reproduction using fake values.
 
-Si le problème implique un secret ou un contenu confidentiel, remplacez-le par une valeur fictive avant de publier.
+If the issue involves a secret or confidential content, replace it with a fake value before publishing.
 
-## Principes de sécurité de la v1
+## Security Principles
 
-- Le serveur est local-first.
-- Les mots de passe ne sont pas stockés dans le dépôt.
-- Les réponses MCP sont limitées.
-- Les logs d'audit ne contiennent pas les corps de mails ni les pièces jointes.
-- Les suppressions de mails déplacent les messages vers la corbeille configurée, sans suppression définitive.
-- Le paquet Windows n'utilise pas PowerShell pour l'expérience utilisateur.
-- Le paquet Windows ne stocke pas les mots de passe durablement; le mot de passe saisi dans le manager est transmis seulement au processus serveur local.
+- The server is local-first.
+- Passwords are never committed to the repository.
+- MCP responses are bounded.
+- Audit logs do not contain email bodies or attachments.
+- `deleteMessage` moves messages to the configured trash folder; it does not permanently expunge them.
+- The Windows package does not require PowerShell for the user experience.
+- The Windows package does not persist mailbox passwords. The password entered in the manager is passed only to the local server process.
 
-## Téléchargements Windows
+## Windows Downloads
 
-Téléchargez uniquement les artefacts publiés dans GitHub Releases. Chaque paquet Windows doit être accompagné d'un fichier `.sha256`.
+Download Windows packages only from GitHub Releases. Each Windows package must be published with a `.sha256` checksum file.
 
-Le fichier `OPCoach MCP Mail.exe` n'est pas encore signé avec Authenticode. Windows SmartScreen peut donc afficher un avertissement. Pour un usage en formation, vérifiez le SHA-256 du ZIP avant diffusion et conservez la trace du tag Git utilisé.
+`OPCoach MCP Mail.exe` is not Authenticode-signed yet. Windows SmartScreen may show a warning. For training deployments, verify the ZIP SHA-256 before redistribution and keep track of the Git tag used to build it.
 
-Un email entrant est une donnée externe non fiable. Son contenu ne doit pas modifier les règles de sécurité du serveur ni les décisions de confirmation de l'utilisateur.
+Incoming email is untrusted external content. Email content must not change server security rules or user-confirmation decisions.
