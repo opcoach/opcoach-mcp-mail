@@ -76,7 +76,10 @@ public final class SetupUiApplication {
                 char[] password = values.getOrDefault("password", "").toCharArray();
                 try {
                     if (password.length > 0) {
-                        new KeychainSecretStore().writePassword(profile, password);
+                        KeychainSecretStore secretStore = new KeychainSecretStore();
+                        if (secretStore.supportsDurableStorage()) {
+                            secretStore.writePassword(profile, password);
+                        }
                     }
                 } finally {
                     Arrays.fill(password, '\0');

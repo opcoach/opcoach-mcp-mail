@@ -4,8 +4,6 @@ import org.opcoach.mailmcp.security.SafeErrorMessage;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -32,29 +30,6 @@ public final class KeychainSecretStore implements SecretStore {
             }
             return Optional.of(result.stdout().stripTrailing());
         }
-        if (isWindows()) {
-            Path secretFile = windowsSecretFile(profile);
-            if (!Files.exists(secretFile)) {
-                return Optional.empty();
-            }
-            try {
-                String encrypted = Files.readString(secretFile, StandardCharsets.UTF_8);
-                ProcessResult result = runWithInput(encrypted, "powershell.exe", "-NoProfile", "-NonInteractive",
-                        "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", """
-                                $blob = [Console]::In.ReadToEnd();
-                                $secure = ConvertTo-SecureString -String $blob;
-                                $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure);
-                                try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) }
-                                finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
-                                """);
-                if (result.exitCode() != 0 || result.stdout().isBlank()) {
-                    return Optional.empty();
-                }
-                return Optional.of(result.stdout().stripTrailing());
-            } catch (IOException exception) {
-                return Optional.empty();
-            }
-        }
         return Optional.empty();
     }
 
@@ -69,24 +44,7 @@ public final class KeychainSecretStore implements SecretStore {
             return;
         }
         if (isWindows()) {
-            String secret = new String(password);
-            ProcessResult result = runWithInput(secret, "powershell.exe", "-NoProfile", "-NonInteractive",
-                    "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", """
-                            $plain = [Console]::In.ReadToEnd();
-                            $secure = ConvertTo-SecureString -String $plain -AsPlainText -Force;
-                            $secure | ConvertFrom-SecureString
-                            """);
-            if (result.exitCode() != 0 || result.stdout().isBlank()) {
-                throw new ConfigurationException(SafeErrorMessage.clean("Unable to save password with Windows DPAPI: " + result.stderr(), java.util.List.of(secret)));
-            }
-            try {
-                Path secretFile = windowsSecretFile(profile);
-                Files.createDirectories(secretFile.getParent());
-                Files.writeString(secretFile, result.stdout().stripTrailing(), StandardCharsets.UTF_8);
-            } catch (IOException exception) {
-                throw new ConfigurationException("Unable to write Windows DPAPI password file.", exception);
-            }
-            return;
+            throw new ConfigurationException("Windows passwords are not stored. Enter the password in the manager when starting the server.");
         }
         if (!isMacOs()) {
             throw new ConfigurationException("""
@@ -104,10 +62,8 @@ public final class KeychainSecretStore implements SecretStore {
         return osName.contains("win");
     }
 
-    private static Path windowsSecretFile(String profile) {
-        return ConfigurationPaths.defaultHomeDir()
-                .resolve("secrets")
-                .resolve(ServerRegistry.registryName(profile) + ".dpapi");
+    public boolean supportsDurableStorage() {
+        return isMacOs();
     }
 
     private static ProcessResult run(String... command) {

@@ -1,5 +1,9 @@
 # opcoach-mcp-mail
 
+[![Security: local-first](https://img.shields.io/badge/security-local--first-2ea44f)](#security)
+[![Windows: no PowerShell](https://img.shields.io/badge/windows-no%20PowerShell-0078d4)](#windows-download)
+[![Release: SHA--256](https://img.shields.io/badge/release-SHA--256%20checksum-6f42c1)](#verify-the-windows-download)
+
 Local-first MCP server for accessing a generic IMAP/SMTP mailbox from Codex, Claude Code Pro, Claude Desktop, or any MCP-compatible client.
 
 The server does not depend on Gmail, Microsoft 365, or any proprietary OAuth flow. It runs on your machine or on a server you control. The email password is never sent to the AI model.
@@ -8,50 +12,44 @@ The server does not depend on Gmail, Microsoft 365, or any proprietary OAuth flo
 
 - An email account compatible with IMAP and SMTP
 - An app password if your provider requires one
-- Internet access on first run if Java 24 is not already installed
+- Windows users: no Java, Maven, Git, Git Bash, or PowerShell command is required when using the release ZIP
+- macOS/Linux developers: Java 24+ is required for source builds
 
-Maven is not required: the repository includes the Maven Wrapper. For the guided local workflow, Java is not required upfront either. The scripts use an existing Java 24+ runtime when available, or download a local Eclipse Temurin JDK into `.runtime/`.
+Maven is not required for developers: the repository includes the Maven Wrapper.
 
-Manual Maven commands still require Java 24+ unless you run them through the provided scripts.
+## Windows Download
 
-## Quick Local Setup
+For training or non-technical Windows users, do not clone the repository and do not run Maven.
 
-For local training or non-technical users, start here. Do not run Maven manually for this workflow.
+1. Open the [latest GitHub release](https://github.com/opcoach/opcoach-mcp-mail/releases/latest).
+2. Download `OPCoach-MCP-Mail-...-windows-x64.zip`.
+3. Extract the ZIP archive.
+4. Double-click `OPCoach MCP Mail.exe`.
+5. Configure the mailbox, click `Start`, then copy the local MCP URL into Codex.
 
-Preferred desktop manager:
+The ZIP contains a Windows Java runtime and the MCP Mail manager. The `.exe` is a small launcher; it does not install a service and it does not require administrator rights.
 
-```text
-Windows: double-click OPCoach MCP Mail.cmd
-macOS:   double-click OPCoach MCP Mail.command
+### Verify The Windows Download
+
+Each release publishes a `.sha256` file next to the ZIP. On Windows, optional verification can be done from Command Prompt:
+
+```cmd
+certutil -hashfile OPCoach-MCP-Mail-...-windows-x64.zip SHA256
 ```
 
-On Windows, `OPCoach MCP Mail.cmd` shows progress during first-time setup if Java or Maven must be downloaded. After setup, `OPCoach MCP Mail.vbs` starts the same manager without a console window.
+Compare the printed SHA-256 with the value in the `.sha256` file from the same GitHub release.
 
-The manager opens a Java UI to configure mailboxes, start/stop local MCP servers, and copy the MCP URL for Codex.
+The Windows executable is not Authenticode-signed yet, so Windows SmartScreen may show a warning on first launch. Prefer downloads from GitHub Releases, verify the checksum for training deployments, and do not download executables from third-party mirrors.
 
-On macOS or Linux:
+## macOS And Linux
 
 ```bash
 bin/manager
 ```
 
-On Windows, if double-click is blocked, open PowerShell in the cloned repository and run:
+The manager opens a Java UI to configure mailboxes, start/stop local MCP servers, and copy the MCP URL for Codex.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\bin\manager.ps1
-```
-
-Do not run `mvnw.cmd` for this local workflow on Windows. The manager helper downloads Java and Maven locally when needed, and does not require a preconfigured `JAVA_HOME`.
-
-The manager:
-
-- uses Java 24+ if installed, or downloads a local JDK automatically;
-- builds the server with the configured Maven version if needed;
-- configures IMAP/SMTP settings and stores the mailbox password locally;
-- starts and stops local HTTP MCP servers;
-- copies the URL to paste into Codex.
-
-At the end, copy the printed URL into Codex, for example:
+At the end, copy the URL into Codex, for example:
 
 ```text
 http://127.0.0.1:8095/mcp
@@ -80,6 +78,31 @@ cd opcoach-mcp-mail
 
 The standard build is non-interactive and uses only fake mail servers for tests.
 
+To build the Windows distribution ZIP from macOS or Linux:
+
+```bash
+bin/build-release
+```
+
+Equivalent Maven command:
+
+```bash
+./mvnw -Pwindows-dist -DskipTests clean package
+```
+
+The Windows package is created under:
+
+```text
+target/OPCoach-MCP-Mail-...-windows-x64.zip
+target/OPCoach-MCP-Mail-...-windows-x64.zip.sha256
+```
+
+The manager:
+
+- configures IMAP/SMTP settings;
+- starts and stops local HTTP MCP servers;
+- copies the URL to paste into Codex.
+
 ## Multiple Mailboxes
 
 Run the wizard once per mailbox. Each run can use a different profile and a different port:
@@ -107,13 +130,9 @@ After rebooting the machine, restart every registered server with:
 bin/start-all
 ```
 
-On Windows:
+On Windows, reopen `OPCoach MCP Mail.exe`, select each profile, enter the mailbox password, and click `Start`.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\bin\start-all.ps1
-```
-
-Passwords are not written to configuration files. On macOS, they are stored in the local keychain with the profile name. On Windows, the PowerShell scripts ask for the mailbox password when starting the server and pass it only to that server process environment.
+Passwords are not written to configuration files. On macOS, they are stored in the local keychain with the profile name. In the Windows release package, passwords are not stored persistently; they are passed only to the local server process when the user starts a profile.
 
 ## Script Reference
 
@@ -131,25 +150,6 @@ bin/manager
 bin/start-server --profile default --port 8095
 bin/start-all
 bin/stop-server
-```
-
-`bin/setup-ui`, `bin/start-server`, and `bin/local-wizard` use Java 24+ from the system when available. If Java is missing or older, they download a local Eclipse Temurin JDK into `.runtime/`.
-
-Windows helpers:
-
-```powershell
-.\bin\manager.ps1
-.\bin\rebuild.ps1
-.\bin\local-wizard.ps1
-.\bin\start-all.ps1
-```
-
-These scripts also use Java 24+ from the system when available. If Java is missing or older, they download a local Eclipse Temurin JDK into `.runtime\`.
-
-The first Windows build still needs a JDK because the project is compiled locally. After that build, the wizard can replace the full local JDK with a smaller `jlink` runtime and remove the JDK copy. To do it later without re-running mailbox setup:
-
-```powershell
-.\bin\compact-runtime.ps1
 ```
 
 `bin/start-server` runs the HTTP server on `127.0.0.1:8095` by default. It writes the PID file and logs under `.run/`, and builds `target/opcoach-mcp-mail.jar` automatically if it is missing.

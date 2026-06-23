@@ -11,6 +11,9 @@ Définir les règles de sécurité du serveur MCP mail, en tenant compte du fait
 - Les réponses sont limitées en taille.
 - Les actions sensibles sont auditables.
 - Les outils MCP sont nommés et décrits sans ambiguïté.
+- La distribution Windows est un paquet ZIP contenant un `.exe`, un jar applicatif et un runtime Java Windows embarqué.
+- La distribution Windows ne demande pas l'exécution de commandes PowerShell par l'utilisateur.
+- La distribution Windows ne stocke pas durablement les mots de passe; le mot de passe est saisi dans le manager et transmis au processus serveur local.
 
 ## Comportement attendu
 
@@ -38,6 +41,7 @@ Les logs ne contiennent jamais:
 - Les réponses doivent rester factuelles et structurées.
 - Le client IA reste responsable de demander confirmation avant les actions sensibles selon son contexte.
 - Un serveur MCP mail malveillant ou mal configuré peut exfiltrer des données.
+- Le `.exe` Windows n'est pas encore signé Authenticode; les releases doivent publier un checksum SHA-256 et indiquer clairement cette limite.
 
 ## Exemples fictifs sans secrets
 

@@ -50,6 +50,15 @@ class SecretResolverTest {
         assertEquals(true, exception.getMessage().contains("MAIL_MCP_PASSWORD"));
     }
 
+    @Test
+    void windowsSecretStoreDoesNotPersistPasswords() {
+        KeychainSecretStore store = new KeychainSecretStore("Windows 11");
+
+        assertEquals(false, store.supportsDurableStorage());
+        assertEquals(Optional.empty(), store.readPassword("default"));
+        assertThrows(ConfigurationException.class, () -> store.writePassword("default", "secret".toCharArray()));
+    }
+
     private static MailConfiguration configuration(String profile) {
         return new MailConfiguration(
                 profile,

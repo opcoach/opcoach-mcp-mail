@@ -9,6 +9,11 @@
     <version>0.1.0-SNAPSHOT</version>
     <name>opcoach-mcp-mail</name>
     <description>Serveur MCP local-first pour boîtes mail IMAP/SMTP génériques.</description>
+    <inceptionYear>2026</inceptionYear>
+    <organization>
+        <name>OPCoach</name>
+        <url>https://www.opcoach.com</url>
+    </organization>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -20,6 +25,11 @@
         <junit.version>6.1.0</junit.version>
         <greenmail.version>2.1.9</greenmail.version>
         <slf4j.version>2.0.18</slf4j.version>
+        <launch4j.maven.plugin.version>2.7.0</launch4j.maven.plugin.version>
+        <maven.antrun.plugin.version>3.2.0</maven.antrun.plugin.version>
+        <windows.dist.name>OPCoach-MCP-Mail-${project.version}-windows-x64</windows.dist.name>
+        <windows.dist.dir>${project.build.directory}/${windows.dist.name}</windows.dist.dir>
+        <windows.runtime.url>https://api.adoptium.net/v3/binary/latest/${maven.compiler.release}/ga/windows/x64/jre/hotspot/normal/eclipse?project=jdk</windows.runtime.url>
     </properties>
 
     <dependencyManagement>
@@ -162,6 +172,99 @@
                                 </goals>
                                 <configuration>
                                     <mainClass>org.opcoach.mailmcp.config.SetupUiApplication</mainClass>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>windows-dist</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>${maven.antrun.plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>prepare-windows-dist</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <target>
+                                        <delete dir="${windows.dist.dir}"/>
+                                        <mkdir dir="${windows.dist.dir}/app"/>
+                                        <copy file="${project.build.directory}/opcoach-mcp-mail.jar"
+                                              tofile="${windows.dist.dir}/app/opcoach-mcp-mail.jar"/>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>com.akathist.maven.plugins.launch4j</groupId>
+                        <artifactId>launch4j-maven-plugin</artifactId>
+                        <version>${launch4j.maven.plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>windows-manager-exe</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>launch4j</goal>
+                                </goals>
+                                <configuration>
+                                    <headerType>gui</headerType>
+                                    <dontWrapJar>true</dontWrapJar>
+                                    <jar>app/opcoach-mcp-mail.jar</jar>
+                                    <outfile>${windows.dist.dir}/OPCoach MCP Mail.exe</outfile>
+                                    <cmdLine>manager</cmdLine>
+                                    <chdir>.</chdir>
+                                    <errTitle>OPCoach MCP Mail</errTitle>
+                                    <jre>
+                                        <path>runtime</path>
+                                        <minVersion>24.0.0</minVersion>
+                                        <requires64Bit>true</requires64Bit>
+                                    </jre>
+                                    <versionInfo>
+                                        <fileVersion>0.1.0.0</fileVersion>
+                                        <txtFileVersion>${project.version}</txtFileVersion>
+                                        <fileDescription>OPCoach MCP Mail Manager</fileDescription>
+                                        <copyright>OPCoach</copyright>
+                                        <productVersion>0.1.0.0</productVersion>
+                                        <txtProductVersion>${project.version}</txtProductVersion>
+                                        <productName>OPCoach MCP Mail</productName>
+                                        <companyName>OPCoach</companyName>
+                                        <internalName>opcoach-mcp-mail</internalName>
+                                        <originalFilename>OPCoach MCP Mail.exe</originalFilename>
+                                    </versionInfo>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.6.3</version>
+                        <executions>
+                            <execution>
+                                <id>archive-windows-dist</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                                <configuration>
+                                    <mainClass>org.opcoach.mailmcp.build.WindowsDistributionBuilder</mainClass>
+                                    <arguments>
+                                        <argument>${windows.dist.dir}</argument>
+                                        <argument>${project.build.directory}/opcoach-mcp-mail.jar</argument>
+                                        <argument>${windows.runtime.url}</argument>
+                                        <argument>${project.build.directory}/${windows.dist.name}.zip</argument>
+                                        <argument>${project.version}</argument>
+                                    </arguments>
                                 </configuration>
                             </execution>
                         </executions>

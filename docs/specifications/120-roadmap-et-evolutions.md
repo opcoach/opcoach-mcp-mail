@@ -23,7 +23,7 @@ Définir les évolutions possibles après la v1, sans compliquer le premier livr
 - supprimer ou archiver un message avec confirmation stricte;
 - gérer plusieurs profils mail;
 - ajouter OAuth pour certains fournisseurs;
-- améliorer le support Windows Credential Manager;
+- ajouter une signature Authenticode pour le paquet Windows;
 - fournir un conteneur de démonstration avec serveur mail de test;
 - publier des exemples de configuration pour plusieurs clients MCP;
 - générer automatiquement un extrait de configuration Codex ou Claude après l'assistant setup;

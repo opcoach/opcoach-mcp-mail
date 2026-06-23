@@ -31,6 +31,10 @@ public final class ServerProcessManager {
     }
 
     public long start(ServerRegistration registration) {
+        return start(registration, "");
+    }
+
+    public long start(ServerRegistration registration, String transientPassword) {
         Optional<ProcessHandle> existing = runningProcess(registration);
         if (existing.isPresent()) {
             return existing.get().pid();
@@ -55,6 +59,9 @@ public final class ServerProcessManager {
                     .redirectError(ProcessBuilder.Redirect.appendTo(registration.logFile().toFile()));
             builder.environment().put(ConfigurationPaths.CONFIG_ENV, registration.configFile().toString());
             builder.environment().put("MAIL_MCP_RUN_DIR", registration.runDir().toString());
+            if (transientPassword != null && !transientPassword.isBlank()) {
+                builder.environment().put("MAIL_MCP_PASSWORD", transientPassword);
+            }
 
             Files.writeString(
                     registration.logFile(),
@@ -135,11 +142,19 @@ public final class ServerProcessManager {
         try {
             URI location = MailMcpApplication.class.getProtectionDomain().getCodeSource().getLocation().toURI();
             Path path = Path.of(location);
-            if (Files.isRegularFile(path)) {
+            if (Files.isRegularFile(path) && path.toString().endsWith(".jar")) {
                 return path;
+            }
+            Path packagedJar = path.toAbsolutePath().getParent().resolve("app").resolve("opcoach-mcp-mail.jar");
+            if (Files.isRegularFile(packagedJar)) {
+                return packagedJar;
             }
         } catch (Exception ignored) {
             // Fall through to the standard build output path.
+        }
+        Path packagedJar = Path.of("app", "opcoach-mcp-mail.jar").toAbsolutePath();
+        if (Files.isRegularFile(packagedJar)) {
+            return packagedJar;
         }
         return Path.of("target", "opcoach-mcp-mail.jar").toAbsolutePath();
     }

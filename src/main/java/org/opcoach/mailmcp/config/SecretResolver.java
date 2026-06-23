@@ -28,13 +28,13 @@ public final class SecretResolver {
         String profileSpecificEnv = profileSpecificEnv(configuration.profile());
         String profilePassword = env.get(profileSpecificEnv);
         if (profilePassword != null && !profilePassword.isBlank()) {
-            LOGGER.warn("Mail password read from {}. Prefer the local keychain or Windows DPAPI for durable usage.", profileSpecificEnv);
+            LOGGER.warn("Mail password read from {}. Prefer the local keychain where durable storage is supported.", profileSpecificEnv);
             return new ResolvedSecret(profilePassword, ResolvedSecret.SecretSource.ENVIRONMENT);
         }
 
         String password = env.get(PASSWORD_ENV);
         if (password != null && !password.isBlank()) {
-            LOGGER.warn("Mail password read from MAIL_MCP_PASSWORD. Prefer the local keychain or Windows DPAPI for durable usage.");
+            LOGGER.warn("Mail password read from MAIL_MCP_PASSWORD. Prefer the local keychain where durable storage is supported.");
             return new ResolvedSecret(password, ResolvedSecret.SecretSource.ENVIRONMENT);
         }
 
@@ -42,8 +42,9 @@ public final class SecretResolver {
                 .map(value -> new ResolvedSecret(value, ResolvedSecret.SecretSource.KEYCHAIN))
                 .orElseThrow(() -> new ConfigurationException("""
                         Missing password for profile %s.
-                        Run java -jar target/opcoach-mcp-mail.jar config set-password --profile %s
-                        or temporarily export MAIL_MCP_PASSWORD.
+                        Enter it in the manager before starting the profile,
+                        run java -jar target/opcoach-mcp-mail.jar config set-password --profile %s on systems with keychain support,
+                        or temporarily set MAIL_MCP_PASSWORD.
                         """.formatted(configuration.profile(), configuration.profile())));
     }
 

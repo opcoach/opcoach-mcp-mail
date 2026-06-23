@@ -36,7 +36,7 @@ class ServerRegistryTest {
     }
 
     @Test
-    void readsWindowsPowerShellUtf8BomEnvFiles() throws Exception {
+    void readsUtf8BomEnvFiles() throws Exception {
         Path servers = tempDir.resolve("servers");
         Files.createDirectories(servers);
         Files.writeString(servers.resolve("default.env"), """

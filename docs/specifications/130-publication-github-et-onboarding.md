@@ -13,6 +13,7 @@ Définir les conditions nécessaires pour publier `opcoach-mcp-mail` en open sou
 - Les assistants de configuration sont activés par profils Maven explicites.
 - Une licence open source doit être choisie avant publication publique.
 - Un workflow GitHub Actions exécute `./mvnw clean verify` sur chaque pull request.
+- Un workflow de release publie le paquet Windows et son checksum SHA-256.
 - Aucune configuration personnelle, aucun secret et aucun exemple réel de boîte mail ne sont publiés.
 
 ## Comportement attendu
@@ -40,6 +41,16 @@ Le dépôt GitHub doit contenir au minimum:
 
 La publication GitHub ne doit pas exiger de compte Gmail, OAuth propriétaire ou service cloud tiers.
 
+Pour Windows, la première expérience utilisateur attendue est:
+
+```text
+Télécharger le ZIP depuis GitHub Releases.
+Décompresser.
+Double-cliquer OPCoach MCP Mail.exe.
+Configurer la boîte mail dans la UI.
+Copier l'URL MCP locale dans Codex.
+```
+
 ## Points d'attention
 
 - Le choix de licence est une décision de projet; Apache-2.0 ou MIT sont des options simples, mais le choix doit être explicite.
@@ -48,6 +59,8 @@ La publication GitHub ne doit pas exiger de compte Gmail, OAuth propriétaire ou
 - Le workflow CI ne doit jamais accéder à une vraie boîte mail.
 - Les releases ne doivent contenir que le code, les artefacts compilés et la documentation publique.
 - Le dépôt doit éviter les dépendances inutiles qui compliquent l'audit de sécurité.
+- Tant que l'exécutable Windows n'est pas signé Authenticode, le README et la release doivent mentionner cette limite.
+- Les artefacts Windows doivent être accompagnés d'un fichier `.sha256`.
 
 ## Exemples fictifs sans secrets
 

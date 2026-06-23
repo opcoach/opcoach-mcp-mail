@@ -277,7 +277,7 @@ public final class ManagerUiApplication {
         row = addField(fields, c, row, "Sender name", fromNameField, "");
         row = addField(fields, c, row, "Sent folder", sentMailboxField, "");
         row = addField(fields, c, row, "Trash folder", trashMailboxField, "");
-        addField(fields, c, row, "Password", passwordField, "Stored locally in Keychain or Windows DPAPI.");
+        addField(fields, c, row, "Password", passwordField, "Stored in Keychain when supported; otherwise used for this start.");
 
         JScrollPane scroll = new JScrollPane(fields);
         scroll.setBorder(null);
@@ -432,7 +432,9 @@ public final class ManagerUiApplication {
         char[] password = passwordField.getPassword();
         try {
             if (password.length > 0) {
-                secretStore.writePassword(profile, password);
+                if (secretStore.supportsDurableStorage()) {
+                    secretStore.writePassword(profile, password);
+                }
                 passwordField.setText("");
             }
         } finally {
@@ -446,15 +448,19 @@ public final class ManagerUiApplication {
         try {
             String profile = normalizedProfile();
             char[] password = passwordField.getPassword();
+            String transientPassword;
             try {
                 if (password.length == 0 && secretStore.readPassword(profile).isEmpty()) {
                     throw new ConfigurationException("Enter the mailbox password before starting profile " + profile + ".");
                 }
+                transientPassword = password.length > 0 && !secretStore.supportsDurableStorage()
+                        ? new String(password)
+                        : "";
             } finally {
                 Arrays.fill(password, '\0');
             }
             ServerRegistration registration = saveFromForm();
-            long pid = processManager.start(registration);
+            long pid = processManager.start(registration, transientPassword);
             refresh();
             selectProfile(registration.profile());
             setStatus("Started " + registration.profile() + " on " + registration.url() + " with PID " + pid + ".");

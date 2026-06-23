@@ -43,8 +43,13 @@ public final class TerminalSetupApplication {
         char[] password = prompter.askPassword("Password or app password");
         try {
             if (password.length > 0) {
-                new KeychainSecretStore().writePassword(profile, password);
-                System.out.printf("Password saved in the local keychain for profile %s.%n", profile);
+                KeychainSecretStore secretStore = new KeychainSecretStore();
+                if (secretStore.supportsDurableStorage()) {
+                    secretStore.writePassword(profile, password);
+                    System.out.printf("Password saved in the local keychain for profile %s.%n", profile);
+                } else {
+                    System.out.println("Password not stored on this platform. Enter it in the manager when starting the server.");
+                }
             } else {
                 System.out.println("No password saved. You can use MAIL_MCP_PASSWORD temporarily.");
             }
@@ -63,7 +68,12 @@ public final class TerminalSetupApplication {
             return 2;
         }
         try {
-            new KeychainSecretStore().writePassword(profile, password);
+            KeychainSecretStore secretStore = new KeychainSecretStore();
+            if (!secretStore.supportsDurableStorage()) {
+                System.err.println("Durable password storage is not supported on this platform.");
+                return 2;
+            }
+            secretStore.writePassword(profile, password);
             System.out.printf("Password saved in the local keychain for profile %s.%n", profile);
             return 0;
         } finally {
