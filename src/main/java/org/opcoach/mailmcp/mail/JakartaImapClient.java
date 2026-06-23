@@ -68,7 +68,7 @@ public final class JakartaImapClient {
             Folder folder = open(store, query.mailbox(), Folder.READ_ONLY);
             try {
                 UIDFolder uidFolder = uidFolder(folder);
-                Message[] messages = latestMessages(folder, query);
+                Message[] messages = latestMessages(folder, uidFolder, query);
                 prefetchSummaryFields(folder, messages);
                 return Arrays.stream(messages)
                         .map(message -> summary(uidFolder, message))
@@ -224,24 +224,54 @@ public final class JakartaImapClient {
         throw new MailOperationException("The IMAP provider does not support server-side message moves.");
     }
 
-    private static Message[] latestMessages(Folder folder, SearchMessagesQuery query) throws MessagingException {
+    private static Message[] latestMessages(Folder folder, UIDFolder uidFolder, SearchMessagesQuery query) throws MessagingException {
         SearchTerm term = searchTerm(query);
         Message[] matches;
         if (term == null) {
-            int messageCount = folder.getMessageCount();
-            if (messageCount <= 0) {
-                return new Message[0];
+            if (query.beforeUid() != null) {
+                if (query.beforeUid() <= 1) {
+                    return new Message[0];
+                }
+                matches = uidFolder.getMessagesByUID(1, query.beforeUid() - 1);
+                matches = newestPage(matches, query.limit());
+            } else {
+                int messageCount = folder.getMessageCount();
+                if (messageCount <= 0) {
+                    return new Message[0];
+                }
+                int start = Math.max(1, messageCount - query.limit() + 1);
+                matches = folder.getMessages(start, messageCount);
             }
-            int start = Math.max(1, messageCount - query.limit() + 1);
-            matches = folder.getMessages(start, messageCount);
         } else {
             matches = search(folder, query);
-            if (matches.length > query.limit()) {
-                matches = Arrays.copyOfRange(matches, matches.length - query.limit(), matches.length);
+            if (query.beforeUid() != null) {
+                matches = beforeUid(uidFolder, matches, query.beforeUid());
+            }
+            matches = newestPage(matches, query.limit());
+            if (matches.length == 0) {
+                return new Message[0];
             }
         }
         reverse(matches);
         return matches;
+    }
+
+    private static Message[] newestPage(Message[] messages, int limit) {
+        if (messages.length <= limit) {
+            return messages;
+        }
+        return Arrays.copyOfRange(messages, messages.length - limit, messages.length);
+    }
+
+    private static Message[] beforeUid(UIDFolder uidFolder, Message[] messages, long beforeUid) throws MessagingException {
+        List<Message> filtered = new ArrayList<>();
+        for (Message message : messages) {
+            long uid = uidFolder.getUID(message);
+            if (uid > 0 && uid < beforeUid) {
+                filtered.add(message);
+            }
+        }
+        return filtered.toArray(Message[]::new);
     }
 
     private static Message[] search(Folder folder, SearchMessagesQuery query) throws MessagingException {
@@ -265,6 +295,9 @@ public final class JakartaImapClient {
         }
         if (query.since() != null) {
             terms.add(new ReceivedDateTerm(ComparisonTerm.GE, date(query.since())));
+        }
+        if (query.until() != null) {
+            terms.add(new ReceivedDateTerm(ComparisonTerm.LT, date(query.until().plusDays(1))));
         }
         if (terms.isEmpty()) {
             return null;

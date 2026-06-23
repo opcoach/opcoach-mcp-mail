@@ -1,9 +1,11 @@
 package org.opcoach.mailmcp.mail;
 
 import com.icegreen.greenmail.user.GreenMailUser;
+import com.icegreen.greenmail.store.MailFolder;
 import com.icegreen.greenmail.util.GreenMail;
 import com.icegreen.greenmail.util.ServerSetup;
 import jakarta.activation.DataHandler;
+import jakarta.mail.Flags;
 import jakarta.mail.Folder;
 import jakarta.mail.Store;
 import jakarta.mail.Session;
@@ -20,7 +22,11 @@ import org.opcoach.mailmcp.config.MailLimits;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.Base64;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -149,6 +155,54 @@ class JakartaImapClientTest {
     }
 
     @Test
+    void searchesClosedReceivedDateRangeWithUidCursorPaging() throws Exception {
+        ServerSetup imap = new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAP);
+        GreenMail greenMail = new GreenMail(imap);
+        greenMail.start();
+        try {
+            GreenMailUser user = greenMail.setUser("training@example.com", "training@example.com", "secret");
+            MailFolder inbox = greenMail.getManagers().getImapHostManager().getInbox(user);
+            appendDated(inbox, "Before range", LocalDate.of(2024, 1, 31));
+            appendDated(inbox, "First day", LocalDate.of(2024, 2, 1));
+            appendDated(inbox, "Middle day", LocalDate.of(2024, 2, 2));
+            appendDated(inbox, "Last day", LocalDate.of(2024, 2, 3));
+            appendDated(inbox, "After range", LocalDate.of(2024, 2, 4));
+
+            MailApplicationService service = new MailApplicationService(configuration(greenMail.getImap().getPort()), "secret");
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> firstPage = (Map<String, Object>) service.searchMessages(Map.of(
+                    "mailbox", "INBOX",
+                    "since", "2024-02-01",
+                    "until", "2024-02-03",
+                    "limit", 2
+            ));
+            @SuppressWarnings("unchecked")
+            List<MessageSummary> firstSummaries = (List<MessageSummary>) firstPage.get("messages");
+
+            assertEquals(2, firstSummaries.size());
+            assertEquals("Last day", firstSummaries.get(0).subject());
+            assertEquals("Middle day", firstSummaries.get(1).subject());
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> secondPage = (Map<String, Object>) service.searchMessages(Map.of(
+                    "mailbox", "INBOX",
+                    "since", "2024-02-01",
+                    "until", "2024-02-03",
+                    "limit", 2,
+                    "beforeUid", firstSummaries.getLast().uid()
+            ));
+            @SuppressWarnings("unchecked")
+            List<MessageSummary> secondSummaries = (List<MessageSummary>) secondPage.get("messages");
+
+            assertEquals(1, secondSummaries.size());
+            assertEquals("First day", secondSummaries.getFirst().subject());
+        } finally {
+            greenMail.stop();
+        }
+    }
+
+    @Test
     void movesAndDeletesMessagesByUid() throws Exception {
         ServerSetup imap = new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAP);
         GreenMail greenMail = new GreenMail(imap);
@@ -182,6 +236,14 @@ class JakartaImapClientTest {
         } finally {
             greenMail.stop();
         }
+    }
+
+    private static void appendDated(MailFolder folder, String subject, LocalDate receivedDate) throws Exception {
+        folder.appendMessage(
+                simpleMessage(subject, "client@example.com", "training@example.com"),
+                new Flags(),
+                Date.from(receivedDate.atTime(LocalTime.NOON).atZone(ZoneId.systemDefault()).toInstant())
+        );
     }
 
     private static String uidForSubject(MailApplicationService service, String mailbox, String subject) {

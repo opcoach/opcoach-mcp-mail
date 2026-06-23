@@ -23,7 +23,7 @@ public final class MailToolRegistry {
         return List.of(
                 tool(MailToolNames.SEND_EMAIL, "Sends a MIME email through SMTP.", McpToolSchemas.sendEmail(), mailToolService::sendEmail),
                 tool(MailToolNames.LIST_MAILBOXES, "Lists available IMAP folders.", McpToolSchemas.listMailboxes(), mailToolService::listMailboxes),
-                tool(MailToolNames.SEARCH_MESSAGES, "Searches emails with a conservative limit.", McpToolSchemas.searchMessages(), mailToolService::searchMessages),
+                tool(MailToolNames.SEARCH_MESSAGES, "Searches emails with text/date filters and a conservative limit.", McpToolSchemas.searchMessages(), mailToolService::searchMessages),
                 tool(MailToolNames.GET_MESSAGE, "Reads a specific message by IMAP UID.", McpToolSchemas.getMessage(), mailToolService::getMessage),
                 tool(MailToolNames.GET_ATTACHMENT, "Explicitly retrieves an attachment by identifier.", McpToolSchemas.getAttachment(), mailToolService::getAttachment),
                 tool(MailToolNames.MOVE_MESSAGE, "Moves one IMAP message to another folder.", McpToolSchemas.moveMessage(), mailToolService::moveMessage),

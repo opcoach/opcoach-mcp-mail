@@ -15,14 +15,21 @@ public final class MailQueryParser {
     }
 
     public SearchMessagesQuery search(Map<String, Object> arguments) {
+        LocalDate since = date(arguments, "since");
+        LocalDate until = date(arguments, "until");
+        if (since != null && until != null && since.isAfter(until)) {
+            throw new IllegalArgumentException("since must be on or before until.");
+        }
         return new SearchMessagesQuery(
                 string(arguments, "mailbox", "INBOX"),
                 string(arguments, "fromContains", null),
                 string(arguments, "toContains", null),
                 string(arguments, "subjectContains", null),
-                date(arguments, "since"),
+                since,
+                until,
                 bool(arguments, "unreadOnly", false),
                 limits.boundedSearchLimit(integer(arguments, "limit", limits.defaultSearchLimit())),
+                optionalUid(arguments, "beforeUid"),
                 hasText(arguments, "mailbox")
         );
     }
@@ -63,10 +70,23 @@ public final class MailQueryParser {
 
     private static long uid(Map<String, Object> arguments) {
         String value = required(arguments, "uid");
+        return parseUid(value, "uid");
+    }
+
+    private static Long optionalUid(Map<String, Object> arguments, String key) {
+        String value = string(arguments, key, null);
+        return value == null ? null : parseUid(value, key);
+    }
+
+    private static long parseUid(String value, String key) {
         try {
-            return Long.parseLong(value);
+            long uid = Long.parseLong(value);
+            if (uid <= 0) {
+                throw new IllegalArgumentException(key + " must be a positive IMAP integer.");
+            }
+            return uid;
         } catch (NumberFormatException exception) {
-            throw new IllegalArgumentException("uid must be a positive IMAP integer.");
+            throw new IllegalArgumentException(key + " must be a positive IMAP integer.");
         }
     }
 

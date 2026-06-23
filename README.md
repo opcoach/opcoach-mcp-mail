@@ -197,13 +197,16 @@ Authentication: none for localhost
 
 - `sendEmail`: sends a text or HTML email with base64 attachments, then attempts to copy it to Sent.
 - `listMailboxes`: lists the available IMAP folders.
-- `searchMessages`: searches messages with a conservative limit.
+- `searchMessages`: searches messages with text filters, inclusive received-date range (`since`/`until`), `limit`, and `beforeUid` cursor paging.
 - `getMessage`: reads a specific message by UID.
 - `getAttachment`: explicitly retrieves an attachment by identifier.
 - `moveMessage`: moves a message by UID from one IMAP folder to another.
 - `deleteMessage`: moves a message by UID to the configured trash folder.
 
-Searches return metadata and snippets. Attachments are never downloaded automatically.
+Searches return metadata, snippets, mailbox, and UID only. Use `getMessage` to inspect one selected message before calling `moveMessage` or `deleteMessage`.
+To page through a date range safely, call `searchMessages` again with `beforeUid` set to the last UID returned by the previous page.
+Date filters use the IMAP received date. `until` is inclusive for the whole calendar day.
+Attachments are never downloaded automatically.
 Deletion is intentionally non-destructive by default: messages are moved to `trash.mailbox`, not permanently expunged.
 
 ## Security

@@ -42,6 +42,23 @@ class MailToolRegistryTest {
         }
     }
 
+    @Test
+    void searchMessagesSchemaSupportsClosedDateRangeAndUidCursorPaging() {
+        Map<String, Object> schema = McpToolSchemas.searchMessages();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> properties = (Map<String, Object>) schema.get("properties");
+
+        assertTrue(properties.containsKey("since"));
+        assertTrue(properties.containsKey("until"));
+        assertTrue(properties.containsKey("limit"));
+        assertTrue(properties.containsKey("beforeUid"));
+        assertEquals(List.of(), schema.get("required"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> beforeUid = (Map<String, Object>) properties.get("beforeUid");
+        assertEquals("string", beforeUid.get("type"));
+    }
+
     private static final class StubMailToolService implements MailToolService {
 
         @Override

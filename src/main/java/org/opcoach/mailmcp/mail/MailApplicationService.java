@@ -67,8 +67,10 @@ public final class MailApplicationService implements MailToolService {
                         query.toContains(),
                         query.subjectContains(),
                         query.since(),
+                        query.until(),
                         query.unreadOnly(),
                         query.limit(),
+                        query.beforeUid(),
                         false
                 );
             }

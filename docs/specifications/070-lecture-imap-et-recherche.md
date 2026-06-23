@@ -21,14 +21,19 @@ Définir la manière dont le serveur lit les messages, recherche dans les dossie
 - destinataire;
 - sujet contenant un texte;
 - date minimale;
+- date maximale inclusive;
 - uniquement non lus;
-- limite de résultats.
+- limite de résultats;
+- curseur `beforeUid` pour paginer les résultats du plus récent au plus ancien.
 
 `getMessage` récupère un message précis et applique les limites de taille configurées.
 
 ## Points d'attention
 
 - Les recherches doivent avoir une limite maximale.
+- Les recherches sur période doivent rester non destructrices: elles renvoient des UID à inspecter ensuite avec `getMessage`.
+- Pour continuer une recherche sans retraiter les messages déjà vus, le client passe le dernier UID reçu dans `beforeUid`.
+- Les dates de recherche sont les dates de réception IMAP. La borne `until` inclut toute la journée demandée.
 - Les snippets ne doivent pas contenir plus de texte que nécessaire.
 - Les corps HTML doivent être bornés.
 - Les pièces jointes volumineuses doivent rester accessibles uniquement par demande explicite.

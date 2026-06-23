@@ -8,8 +8,10 @@ public record SearchMessagesQuery(
         String toContains,
         String subjectContains,
         LocalDate since,
+        LocalDate until,
         boolean unreadOnly,
         int limit,
+        Long beforeUid,
         boolean mailboxExplicit
 ) {
 }

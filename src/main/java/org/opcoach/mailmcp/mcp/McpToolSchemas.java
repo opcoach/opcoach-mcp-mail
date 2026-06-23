@@ -48,9 +48,11 @@ public final class McpToolSchemas {
                         entry("fromContains", string("Partial sender filter.")),
                         entry("toContains", string("Partial recipient filter. Use this to find recent messages sent to an email address or person.")),
                         entry("subjectContains", string("Partial subject filter.")),
-                        entry("since", date("Minimum date in ISO yyyy-MM-dd format.")),
+                        entry("since", date("Inclusive minimum received date in ISO yyyy-MM-dd format.")),
+                        entry("until", date("Inclusive maximum received date in ISO yyyy-MM-dd format.")),
                         entry("unreadOnly", bool("Limit to unread messages.", false)),
-                        entry("limit", integer("Maximum number of returned messages.", 1, 25, 10))
+                        entry("limit", integer("Maximum number of returned messages.", 1, 25, 10)),
+                        entry("beforeUid", string("Return only messages with an IMAP UID lower than this value. Use the last UID from the previous page to continue safely."))
                 ),
                 List.of()
         );

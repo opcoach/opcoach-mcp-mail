@@ -6,13 +6,15 @@ Définir le contrat public MCP de la v1 et les outils que les clients IA peuvent
 
 ## Décisions retenues
 
-La v1 expose cinq tools:
+La v1 expose sept tools:
 
 - `sendEmail`
 - `listMailboxes`
 - `searchMessages`
 - `getMessage`
 - `getAttachment`
+- `moveMessage`
+- `deleteMessage`
 
 Les schemas MCP doivent rester compatibles avec Codex, Claude Desktop et les clients stricts:
 
@@ -27,11 +29,15 @@ Les schemas MCP doivent rester compatibles avec Codex, Claude Desktop et les cli
 
 `listMailboxes` liste les dossiers disponibles.
 
-`searchMessages` recherche des messages avec limites.
+`searchMessages` recherche des messages avec limites. Il accepte notamment un intervalle fermé de dates de réception avec `since` et `until`, au format `yyyy-MM-dd`, ainsi qu'un curseur `beforeUid` pour parcourir progressivement les résultats du plus récent au plus ancien.
 
 `getMessage` lit un message précis par UID.
 
 `getAttachment` récupère explicitement une pièce jointe par identifiant.
+
+`moveMessage` déplace un message précis par UID.
+
+`deleteMessage` déplace un message précis par UID vers la corbeille configurée.
 
 ## Points d'attention
 
@@ -50,7 +56,10 @@ Exemple d'appel `searchMessages`:
   "mailbox": "INBOX",
   "unreadOnly": true,
   "subjectContains": "formation",
-  "limit": 5
+  "since": "2024-02-01",
+  "until": "2024-02-29",
+  "limit": 5,
+  "beforeUid": "12345"
 }
 ```
 
