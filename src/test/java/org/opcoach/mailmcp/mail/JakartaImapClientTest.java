@@ -148,6 +148,64 @@ class JakartaImapClientTest {
         }
     }
 
+    @Test
+    void movesAndDeletesMessagesByUid() throws Exception {
+        ServerSetup imap = new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAP);
+        GreenMail greenMail = new GreenMail(imap);
+        greenMail.start();
+        try {
+            GreenMailUser user = greenMail.setUser("training@example.com", "training@example.com", "secret");
+            user.deliver(simpleMessage("Move me", "client@example.com", "training@example.com"));
+            user.deliver(simpleMessage("Delete me", "client@example.com", "training@example.com"));
+            MailApplicationService service = new MailApplicationService(configuration(greenMail.getImap().getPort()), "secret");
+
+            String moveUid = uidForSubject(service, "INBOX", "Move me");
+            MoveMessageResult moved = (MoveMessageResult) service.moveMessage(Map.of(
+                    "mailbox", "INBOX",
+                    "uid", moveUid,
+                    "targetMailbox", "Archive"
+            ));
+
+            assertEquals("moved", moved.action());
+            assertEquals("Archive", moved.targetMailbox());
+            assertEquals("Move me", subjectInMailbox(service, "Archive", "Move me"));
+
+            String deleteUid = uidForSubject(service, "INBOX", "Delete me");
+            MoveMessageResult deleted = (MoveMessageResult) service.deleteMessage(Map.of(
+                    "mailbox", "INBOX",
+                    "uid", deleteUid
+            ));
+
+            assertEquals("deleted", deleted.action());
+            assertEquals("Trash", deleted.targetMailbox());
+            assertEquals("Delete me", subjectInMailbox(service, "Trash", "Delete me"));
+        } finally {
+            greenMail.stop();
+        }
+    }
+
+    private static String uidForSubject(MailApplicationService service, String mailbox, String subject) {
+        MessageSummary summary = summaryForSubject(service, mailbox, subject);
+        return summary.uid();
+    }
+
+    private static String subjectInMailbox(MailApplicationService service, String mailbox, String subject) {
+        return summaryForSubject(service, mailbox, subject).subject();
+    }
+
+    private static MessageSummary summaryForSubject(MailApplicationService service, String mailbox, String subject) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> search = (Map<String, Object>) service.searchMessages(Map.of(
+                "mailbox", mailbox,
+                "subjectContains", subject,
+                "limit", 5
+        ));
+        @SuppressWarnings("unchecked")
+        List<MessageSummary> summaries = (List<MessageSummary>) search.get("messages");
+        assertEquals(1, summaries.size());
+        return summaries.getFirst();
+    }
+
     private static void appendToFolder(
             MailConfiguration configuration,
             String password,
@@ -212,6 +270,7 @@ class JakartaImapClientTest {
                 "training@example.com",
                 "MCP Training",
                 "Sent",
+                "Trash",
                 MailLimits.DEFAULTS,
                 Path.of("config.properties"),
                 Path.of("audit.log")

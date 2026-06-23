@@ -82,6 +82,7 @@ public final class ManagerUiApplication {
     private JTextField fromAddressField;
     private JTextField fromNameField;
     private JTextField sentMailboxField;
+    private JTextField trashMailboxField;
     private JPasswordField passwordField;
     private JLabel statusLabel;
 
@@ -254,6 +255,7 @@ public final class ManagerUiApplication {
         fromAddressField = styledTextField();
         fromNameField = styledTextField();
         sentMailboxField = styledTextField("INBOX.Sent");
+        trashMailboxField = styledTextField("INBOX.Trash");
         passwordField = new JPasswordField();
         styleTextComponent(passwordField);
 
@@ -274,6 +276,7 @@ public final class ManagerUiApplication {
         row = addField(fields, c, row, "Sender address", fromAddressField, "");
         row = addField(fields, c, row, "Sender name", fromNameField, "");
         row = addField(fields, c, row, "Sent folder", sentMailboxField, "");
+        row = addField(fields, c, row, "Trash folder", trashMailboxField, "");
         addField(fields, c, row, "Password", passwordField, "Stored locally in Keychain or Windows DPAPI.");
 
         JScrollPane scroll = new JScrollPane(fields);
@@ -363,6 +366,7 @@ public final class ManagerUiApplication {
         fromAddressField.setText("training@example.com");
         fromNameField.setText("MCP Training");
         sentMailboxField.setText("INBOX.Sent");
+        trashMailboxField.setText("INBOX.Trash");
         passwordField.setText("");
         table.clearSelection();
         setStatus("New profile.");
@@ -389,6 +393,7 @@ public final class ManagerUiApplication {
                 fromAddressField.setText(configuration.fromAddress());
                 fromNameField.setText(configuration.fromName());
                 sentMailboxField.setText(configuration.sentMailbox());
+                trashMailboxField.setText(configuration.trashMailbox());
                 setStatus("Loaded " + registration.profile() + ".");
             } catch (ConfigurationException exception) {
                 showError(exception);
@@ -420,7 +425,8 @@ public final class ManagerUiApplication {
                 usernameField.getText().trim(),
                 fromAddressField.getText().trim(),
                 fromNameField.getText().trim(),
-                sentMailboxField.getText().trim()
+                sentMailboxField.getText().trim(),
+                trashMailboxField.getText().trim()
         );
         new ConfigurationWriter(registration.configFile()).write(draft);
         char[] password = passwordField.getPassword();

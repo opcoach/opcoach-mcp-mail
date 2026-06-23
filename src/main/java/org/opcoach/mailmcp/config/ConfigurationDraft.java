@@ -11,7 +11,8 @@ public record ConfigurationDraft(
         String username,
         String fromAddress,
         String fromName,
-        String sentMailbox
+        String sentMailbox,
+        String trashMailbox
 ) {
 
     public ConfigurationDraft {
@@ -21,6 +22,7 @@ public record ConfigurationDraft(
         require(username, "username");
         require(fromAddress, "from.address");
         require(sentMailbox, "sent.mailbox");
+        require(trashMailbox, "trash.mailbox");
         if (imapPort < 1 || imapPort > 65535) {
             throw new ConfigurationException("Invalid IMAP port: " + imapPort);
         }

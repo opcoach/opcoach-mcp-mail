@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MailToolRegistryTest {
 
     @Test
-    void exposesExactlyFiveMailTools() {
+    void exposesMailTools() {
         MailToolService stub = new StubMailToolService();
         MailToolRegistry registry = new MailToolRegistry(stub, McpJsonDefaults.getMapper());
 
@@ -66,6 +66,16 @@ class MailToolRegistryTest {
 
         @Override
         public Object getAttachment(Map<String, Object> arguments) {
+            return ok();
+        }
+
+        @Override
+        public Object moveMessage(Map<String, Object> arguments) {
+            return ok();
+        }
+
+        @Override
+        public Object deleteMessage(Map<String, Object> arguments) {
             return ok();
         }
 

@@ -46,6 +46,21 @@ public final class MailQueryParser {
         );
     }
 
+    public MoveMessageCommand moveMessage(Map<String, Object> arguments) {
+        return new MoveMessageCommand(
+                string(arguments, "mailbox", "INBOX"),
+                uid(arguments),
+                required(arguments, "targetMailbox")
+        );
+    }
+
+    public DeleteMessageCommand deleteMessage(Map<String, Object> arguments) {
+        return new DeleteMessageCommand(
+                string(arguments, "mailbox", "INBOX"),
+                uid(arguments)
+        );
+    }
+
     private static long uid(Map<String, Object> arguments) {
         String value = required(arguments, "uid");
         try {

@@ -236,6 +236,7 @@ $username = Prompt-MailMcpValue "Email username" "training@example.com"
 $fromAddress = Prompt-MailMcpValue "Sender address" $username
 $fromName = Prompt-MailMcpValue "Sender name" "MCP Training"
 $sentMailbox = Prompt-MailMcpValue "Sent folder" "INBOX.Sent"
+$trashMailbox = Prompt-MailMcpValue "Trash folder" "INBOX.Trash"
 $securePassword = Read-Host "Password or app password" -AsSecureString
 $password = ConvertFrom-MailMcpSecureString $securePassword
 
@@ -251,6 +252,7 @@ Write-MailMcpProperties $configFile @{
     "from.address" = $fromAddress
     "from.name" = $fromName
     "sent.mailbox" = $sentMailbox
+    "trash.mailbox" = $trashMailbox
 }
 
 Register-MailMcpServer $profile $configFile $runDir $port

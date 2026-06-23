@@ -130,6 +130,37 @@ public final class JakartaImapClient {
         }
     }
 
+    public synchronized MoveMessageResult moveMessage(MoveMessageCommand command) {
+        return moveMessage(command, "moved");
+    }
+
+    public synchronized MoveMessageResult deleteMessage(DeleteMessageCommand command, String trashMailbox) {
+        return moveMessage(new MoveMessageCommand(command.mailbox(), command.uid(), trashMailbox), "deleted");
+    }
+
+    private MoveMessageResult moveMessage(MoveMessageCommand command, String action) {
+        try {
+            Store store = store();
+            Folder source = open(store, command.mailbox(), Folder.READ_WRITE);
+            try {
+                Message message = messageByUid(source, command.uid());
+                Folder target = targetFolder(store, command.targetMailbox());
+                move(source, message, target);
+                return new MoveMessageResult(
+                        Long.toString(command.uid()),
+                        command.mailbox(),
+                        command.targetMailbox(),
+                        action
+                );
+            } finally {
+                source.close(false);
+            }
+        } catch (MessagingException exception) {
+            invalidateStore();
+            throw new MailOperationException("Unable to move the IMAP message: " + exception.getMessage(), exception);
+        }
+    }
+
     private Store store() throws MessagingException {
         if (cachedStore != null && cachedStore.isConnected()) {
             return cachedStore;
@@ -169,6 +200,28 @@ public final class JakartaImapClient {
         }
         folder.open(mode);
         return folder;
+    }
+
+    private static Folder targetFolder(Store store, String mailbox) throws MessagingException {
+        Folder folder = store.getFolder(mailbox);
+        if (!folder.exists()) {
+            folder.create(Folder.HOLDS_MESSAGES);
+        }
+        if (!folder.exists()) {
+            throw new IllegalArgumentException("IMAP target folder not found: " + mailbox);
+        }
+        return folder;
+    }
+
+    private static void move(Folder source, Message message, Folder target) throws MessagingException {
+        if (source.getFullName().equals(target.getFullName())) {
+            throw new IllegalArgumentException("Source and target IMAP folders are identical: " + source.getFullName());
+        }
+        if (source instanceof IMAPFolder imapFolder) {
+            imapFolder.moveMessages(new Message[]{message}, target);
+            return;
+        }
+        throw new MailOperationException("The IMAP provider does not support server-side message moves.");
     }
 
     private static Message[] latestMessages(Folder folder, SearchMessagesQuery query) throws MessagingException {

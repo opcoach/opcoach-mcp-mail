@@ -59,6 +59,7 @@ class SecretResolverTest {
                 "training@example.com",
                 "MCP Training",
                 "INBOX.Sent",
+                "INBOX.Trash",
                 MailLimits.DEFAULTS,
                 Path.of("config.properties"),
                 Path.of("audit.log")

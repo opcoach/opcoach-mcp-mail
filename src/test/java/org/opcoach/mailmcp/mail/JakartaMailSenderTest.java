@@ -85,6 +85,7 @@ class JakartaMailSenderTest {
                 "training@example.com",
                 "MCP Training",
                 "Sent",
+                "Trash",
                 MailLimits.DEFAULTS,
                 Path.of("config.properties"),
                 Path.of("audit.log")

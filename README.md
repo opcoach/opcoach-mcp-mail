@@ -213,8 +213,11 @@ Authentication: none for localhost
 - `searchMessages`: searches messages with a conservative limit.
 - `getMessage`: reads a specific message by UID.
 - `getAttachment`: explicitly retrieves an attachment by identifier.
+- `moveMessage`: moves a message by UID from one IMAP folder to another.
+- `deleteMessage`: moves a message by UID to the configured trash folder.
 
 Searches return metadata and snippets. Attachments are never downloaded automatically.
+Deletion is intentionally non-destructive by default: messages are moved to `trash.mailbox`, not permanently expunged.
 
 ## Security
 

@@ -10,6 +10,7 @@ public record MailConfiguration(
         String fromAddress,
         String fromName,
         String sentMailbox,
+        String trashMailbox,
         MailLimits limits,
         Path configPath,
         Path auditPath
@@ -20,6 +21,7 @@ public record MailConfiguration(
         require(username, "username");
         require(fromAddress, "from.address");
         require(sentMailbox, "sent.mailbox");
+        require(trashMailbox, "trash.mailbox");
         if (imap == null) {
             throw new ConfigurationException("Missing IMAP configuration.");
         }

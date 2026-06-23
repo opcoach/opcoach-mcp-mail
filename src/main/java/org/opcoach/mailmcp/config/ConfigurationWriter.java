@@ -30,6 +30,7 @@ public final class ConfigurationWriter {
         properties.setProperty("from.address", draft.fromAddress());
         properties.setProperty("from.name", draft.fromName());
         properties.setProperty("sent.mailbox", draft.sentMailbox());
+        properties.setProperty("trash.mailbox", draft.trashMailbox());
 
         try {
             Path parent = configPath.toAbsolutePath().getParent();

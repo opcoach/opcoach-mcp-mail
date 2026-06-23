@@ -44,6 +44,8 @@ public final class ConfigurationLoader {
         MailEndpoint smtp = endpoint(properties, "smtp");
         MailLimits limits = MailLimits.from(properties);
         Path auditPath = Path.of(value(properties, "audit.path", ConfigurationPaths.defaultAuditPath(configPath).toString()));
+        String sentMailbox = required(properties, "sent.mailbox");
+        String trashMailbox = value(properties, "trash.mailbox", "INBOX.Trash");
 
         return new MailConfiguration(
                 profile,
@@ -52,7 +54,8 @@ public final class ConfigurationLoader {
                 required(properties, "username"),
                 required(properties, "from.address"),
                 value(properties, "from.name", ""),
-                required(properties, "sent.mailbox"),
+                sentMailbox,
+                trashMailbox,
                 limits,
                 configPath,
                 auditPath

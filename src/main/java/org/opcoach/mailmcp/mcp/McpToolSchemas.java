@@ -80,6 +80,27 @@ public final class McpToolSchemas {
         );
     }
 
+    public static Map<String, Object> moveMessage() {
+        return object(
+                props(
+                        entry("mailbox", string("IMAP folder currently containing the message.", "INBOX")),
+                        entry("uid", string("Stable IMAP UID for the message in the source folder.")),
+                        entry("targetMailbox", string("IMAP folder where the message must be moved. The folder is created when the server allows it."))
+                ),
+                List.of("uid", "targetMailbox")
+        );
+    }
+
+    public static Map<String, Object> deleteMessage() {
+        return object(
+                props(
+                        entry("mailbox", string("IMAP folder currently containing the message.", "INBOX")),
+                        entry("uid", string("Stable IMAP UID for the message in the source folder. The message is moved to the configured trash folder."))
+                ),
+                List.of("uid")
+        );
+    }
+
     @SafeVarargs
     private static Map<String, Object> props(Map.Entry<String, Object>... entries) {
         Map<String, Object> properties = new LinkedHashMap<>();

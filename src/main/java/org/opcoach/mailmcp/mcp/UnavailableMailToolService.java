@@ -34,4 +34,14 @@ public final class UnavailableMailToolService implements MailToolService {
     public Object getAttachment(Map<String, Object> arguments) {
         throw unavailable();
     }
+
+    @Override
+    public Object moveMessage(Map<String, Object> arguments) {
+        throw unavailable();
+    }
+
+    @Override
+    public Object deleteMessage(Map<String, Object> arguments) {
+        throw unavailable();
+    }
 }

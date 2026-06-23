@@ -25,7 +25,9 @@ public final class MailToolRegistry {
                 tool(MailToolNames.LIST_MAILBOXES, "Lists available IMAP folders.", McpToolSchemas.listMailboxes(), mailToolService::listMailboxes),
                 tool(MailToolNames.SEARCH_MESSAGES, "Searches emails with a conservative limit.", McpToolSchemas.searchMessages(), mailToolService::searchMessages),
                 tool(MailToolNames.GET_MESSAGE, "Reads a specific message by IMAP UID.", McpToolSchemas.getMessage(), mailToolService::getMessage),
-                tool(MailToolNames.GET_ATTACHMENT, "Explicitly retrieves an attachment by identifier.", McpToolSchemas.getAttachment(), mailToolService::getAttachment)
+                tool(MailToolNames.GET_ATTACHMENT, "Explicitly retrieves an attachment by identifier.", McpToolSchemas.getAttachment(), mailToolService::getAttachment),
+                tool(MailToolNames.MOVE_MESSAGE, "Moves one IMAP message to another folder.", McpToolSchemas.moveMessage(), mailToolService::moveMessage),
+                tool(MailToolNames.DELETE_MESSAGE, "Moves one IMAP message to the configured trash folder.", McpToolSchemas.deleteMessage(), mailToolService::deleteMessage)
         );
     }
 

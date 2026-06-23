@@ -9,13 +9,17 @@ public final class MailToolNames {
     public static final String SEARCH_MESSAGES = "searchMessages";
     public static final String GET_MESSAGE = "getMessage";
     public static final String GET_ATTACHMENT = "getAttachment";
+    public static final String MOVE_MESSAGE = "moveMessage";
+    public static final String DELETE_MESSAGE = "deleteMessage";
 
     public static final List<String> ALL = List.of(
             SEND_EMAIL,
             LIST_MAILBOXES,
             SEARCH_MESSAGES,
             GET_MESSAGE,
-            GET_ATTACHMENT
+            GET_ATTACHMENT,
+            MOVE_MESSAGE,
+            DELETE_MESSAGE
     );
 
     private MailToolNames() {

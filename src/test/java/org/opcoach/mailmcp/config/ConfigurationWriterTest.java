@@ -29,13 +29,15 @@ class ConfigurationWriterTest {
                 "training@example.com",
                 "training@example.com",
                 "MCP Training",
-                "INBOX.Sent"
+                "INBOX.Sent",
+                "INBOX.Trash"
         );
 
         new ConfigurationWriter(config).write(draft);
 
         String content = Files.readString(config);
         assertTrue(content.contains("imap.host=imap.example.com"));
+        assertTrue(content.contains("trash.mailbox=INBOX.Trash"));
         assertFalse(content.toLowerCase().contains("password"));
         assertFalse(content.toLowerCase().contains("fake-password"));
     }

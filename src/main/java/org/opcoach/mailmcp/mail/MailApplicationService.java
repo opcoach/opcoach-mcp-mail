@@ -108,4 +108,32 @@ public final class MailApplicationService implements MailToolService {
             throw exception;
         }
     }
+
+    @Override
+    public Object moveMessage(Map<String, Object> arguments) {
+        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", "INBOX"));
+        try {
+            MoveMessageCommand command = queryParser.moveMessage(arguments);
+            MoveMessageResult result = imapClient.moveMessage(command);
+            auditLogger.record(AuditEvent.success(MailToolNames.MOVE_MESSAGE, command.mailbox(), Long.toString(command.uid()), List.of()));
+            return result;
+        } catch (RuntimeException exception) {
+            auditLogger.record(AuditEvent.failure(MailToolNames.MOVE_MESSAGE, mailbox));
+            throw exception;
+        }
+    }
+
+    @Override
+    public Object deleteMessage(Map<String, Object> arguments) {
+        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", "INBOX"));
+        try {
+            DeleteMessageCommand command = queryParser.deleteMessage(arguments);
+            MoveMessageResult result = imapClient.deleteMessage(command, configuration.trashMailbox());
+            auditLogger.record(AuditEvent.success(MailToolNames.DELETE_MESSAGE, command.mailbox(), Long.toString(command.uid()), List.of()));
+            return result;
+        } catch (RuntimeException exception) {
+            auditLogger.record(AuditEvent.failure(MailToolNames.DELETE_MESSAGE, mailbox));
+            throw exception;
+        }
+    }
 }

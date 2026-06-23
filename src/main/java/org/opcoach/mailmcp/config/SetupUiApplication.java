@@ -69,7 +69,8 @@ public final class SetupUiApplication {
                         required(values, "username"),
                         required(values, "fromAddress"),
                         values.getOrDefault("fromName", ""),
-                        required(values, "sentMailbox")
+                        required(values, "sentMailbox"),
+                        required(values, "trashMailbox")
                 );
                 new ConfigurationWriter(ConfigurationPaths.defaultConfigPath()).write(draft);
                 char[] password = values.getOrDefault("password", "").toCharArray();
@@ -127,6 +128,7 @@ public final class SetupUiApplication {
                     <label>Sender address<input name="fromAddress" value="training@example.com" required></label>
                     <label>Sender name<input name="fromName" value="MCP Training"></label>
                     <label>Sent folder<input name="sentMailbox" value="INBOX.Sent" required></label>
+                    <label>Trash folder<input name="trashMailbox" value="INBOX.Trash" required></label>
                     <label>App password<input name="password" type="password" autocomplete="new-password"></label>
                     <button type="submit">Save</button>
                   </form>
