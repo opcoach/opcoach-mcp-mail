@@ -54,6 +54,7 @@ public final class ConfigurationLoader {
                 required(properties, "username"),
                 required(properties, "from.address"),
                 value(properties, "from.name", ""),
+                value(properties, "replyTo.address", ""),
                 sentMailbox,
                 trashMailbox,
                 limits,

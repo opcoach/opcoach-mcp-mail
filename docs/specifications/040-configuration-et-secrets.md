@@ -29,10 +29,13 @@ smtp.security=ssl_tls
 username=formation@example.com
 from.address=formation@example.com
 from.name=Formation MCP
+replyTo.address=reponses@example.com
 sent.mailbox=INBOX.Sent
 ```
 
 Le mot de passe peut être fourni temporairement:
+
+`replyTo.address` est optionnel. Si l'utilisateur ne renseigne rien, la propriété peut être absente et aucun header `Reply-To` n'est ajouté aux messages envoyés.
 
 ```bash
 export MAIL_MCP_PASSWORD="mot-de-passe-fictif"
@@ -46,6 +49,7 @@ L'assistant de configuration demande uniquement les paramètres nécessaires:
 - hôte, port et sécurité SMTP;
 - identifiant mail;
 - adresse et nom d'expéditeur;
+- adresse Reply-To optionnelle;
 - dossier des envoyés;
 - mot de passe ou mot de passe applicatif.
 

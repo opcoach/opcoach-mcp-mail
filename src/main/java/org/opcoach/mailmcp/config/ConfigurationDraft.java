@@ -11,6 +11,7 @@ public record ConfigurationDraft(
         String username,
         String fromAddress,
         String fromName,
+        String replyToAddress,
         String sentMailbox,
         String trashMailbox
 ) {

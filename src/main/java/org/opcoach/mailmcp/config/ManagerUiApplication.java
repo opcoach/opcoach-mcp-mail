@@ -81,6 +81,7 @@ public final class ManagerUiApplication {
     private JTextField usernameField;
     private JTextField fromAddressField;
     private JTextField fromNameField;
+    private JTextField replyToAddressField;
     private JTextField sentMailboxField;
     private JTextField trashMailboxField;
     private JPasswordField passwordField;
@@ -254,6 +255,7 @@ public final class ManagerUiApplication {
         usernameField = styledTextField();
         fromAddressField = styledTextField();
         fromNameField = styledTextField();
+        replyToAddressField = styledTextField();
         sentMailboxField = styledTextField("INBOX.Sent");
         trashMailboxField = styledTextField("INBOX.Trash");
         passwordField = new JPasswordField();
@@ -275,6 +277,7 @@ public final class ManagerUiApplication {
         row = addField(fields, c, row, "Email username", usernameField, "");
         row = addField(fields, c, row, "Sender address", fromAddressField, "");
         row = addField(fields, c, row, "Sender name", fromNameField, "");
+        row = addField(fields, c, row, "Reply-To address", replyToAddressField, "Optional.");
         row = addField(fields, c, row, "Sent folder", sentMailboxField, "");
         row = addField(fields, c, row, "Trash folder", trashMailboxField, "");
         addField(fields, c, row, "Password", passwordField, "Stored in Keychain when supported; otherwise used for this start.");
@@ -365,6 +368,7 @@ public final class ManagerUiApplication {
         usernameField.setText("training@example.com");
         fromAddressField.setText("training@example.com");
         fromNameField.setText("MCP Training");
+        replyToAddressField.setText("");
         sentMailboxField.setText("INBOX.Sent");
         trashMailboxField.setText("INBOX.Trash");
         passwordField.setText("");
@@ -392,6 +396,7 @@ public final class ManagerUiApplication {
                 usernameField.setText(configuration.username());
                 fromAddressField.setText(configuration.fromAddress());
                 fromNameField.setText(configuration.fromName());
+                replyToAddressField.setText(configuration.replyToAddress());
                 sentMailboxField.setText(configuration.sentMailbox());
                 trashMailboxField.setText(configuration.trashMailbox());
                 setStatus("Loaded " + registration.profile() + ".");
@@ -425,6 +430,7 @@ public final class ManagerUiApplication {
                 usernameField.getText().trim(),
                 fromAddressField.getText().trim(),
                 fromNameField.getText().trim(),
+                replyToAddressField.getText().trim(),
                 sentMailboxField.getText().trim(),
                 trashMailboxField.getText().trim()
         );

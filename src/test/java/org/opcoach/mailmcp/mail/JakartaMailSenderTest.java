@@ -33,7 +33,7 @@ class JakartaMailSenderTest {
         try {
             greenMail.setUser("training@example.com", "training@example.com", "secret");
             greenMail.setUser("recipient@example.com", "recipient@example.com", "secret");
-            MailConfiguration configuration = configuration(greenMail.getSmtp().getPort(), greenMail.getImap().getPort());
+            MailConfiguration configuration = configuration(greenMail.getSmtp().getPort(), greenMail.getImap().getPort(), "reply@example.com");
             MailApplicationService service = new MailApplicationService(configuration, "secret");
             String contentBase64 = Base64.getEncoder().encodeToString("fake content".getBytes(StandardCharsets.UTF_8));
 
@@ -55,6 +55,7 @@ class JakartaMailSenderTest {
             assertTrue(greenMail.waitForIncomingEmail(5_000, 1));
             MimeMessage received = greenMail.getReceivedMessages()[0];
             assertEquals("Processing result", received.getSubject());
+            assertEquals("reply@example.com", received.getHeader("Reply-To", null));
             assertTrue(received.isMimeType("multipart/*"));
             assertSentCopyExists(configuration, "secret");
         } finally {
@@ -77,6 +78,10 @@ class JakartaMailSenderTest {
     }
 
     private static MailConfiguration configuration(int smtpPort, int imapPort) {
+        return configuration(smtpPort, imapPort, "");
+    }
+
+    private static MailConfiguration configuration(int smtpPort, int imapPort, String replyToAddress) {
         return new MailConfiguration(
                 "default",
                 new MailEndpoint("127.0.0.1", imapPort, ConnectionSecurity.NONE),
@@ -84,6 +89,7 @@ class JakartaMailSenderTest {
                 "training@example.com",
                 "training@example.com",
                 "MCP Training",
+                replyToAddress,
                 "Sent",
                 "Trash",
                 MailLimits.DEFAULTS,

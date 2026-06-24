@@ -9,6 +9,7 @@ public record MailConfiguration(
         String username,
         String fromAddress,
         String fromName,
+        String replyToAddress,
         String sentMailbox,
         String trashMailbox,
         MailLimits limits,
@@ -30,6 +31,9 @@ public record MailConfiguration(
         }
         if (limits == null) {
             limits = MailLimits.DEFAULTS;
+        }
+        if (replyToAddress == null) {
+            replyToAddress = "";
         }
     }
 

@@ -67,6 +67,7 @@ class SecretResolverTest {
                 "training@example.com",
                 "training@example.com",
                 "MCP Training",
+                "",
                 "INBOX.Sent",
                 "INBOX.Trash",
                 MailLimits.DEFAULTS,

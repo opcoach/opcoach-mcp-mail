@@ -29,6 +29,9 @@ public final class ConfigurationWriter {
         properties.setProperty("username", draft.username());
         properties.setProperty("from.address", draft.fromAddress());
         properties.setProperty("from.name", draft.fromName());
+        if (draft.replyToAddress() != null && !draft.replyToAddress().isBlank()) {
+            properties.setProperty("replyTo.address", draft.replyToAddress().trim());
+        }
         properties.setProperty("sent.mailbox", draft.sentMailbox());
         properties.setProperty("trash.mailbox", draft.trashMailbox());
 

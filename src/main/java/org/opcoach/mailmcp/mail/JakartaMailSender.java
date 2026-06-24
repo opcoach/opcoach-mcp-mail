@@ -52,6 +52,9 @@ public final class JakartaMailSender {
     private MimeMessage buildMessage(Session session, SendEmailCommand command) throws MessagingException, UnsupportedEncodingException {
         MimeMessage message = new MimeMessage(session);
         message.setFrom(new InternetAddress(configuration.fromAddress(), configuration.fromName(), "UTF-8"));
+        if (!configuration.replyToAddress().isBlank()) {
+            message.setReplyTo(InternetAddress.parse(configuration.replyToAddress(), false));
+        }
         addRecipients(message, Message.RecipientType.TO, command.to());
         addRecipients(message, Message.RecipientType.CC, command.cc());
         addRecipients(message, Message.RecipientType.BCC, command.bcc());

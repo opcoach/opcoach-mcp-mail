@@ -37,6 +37,7 @@ class ConfigurationLoaderTest {
         assertEquals("default", loaded.profile());
         assertEquals("imap.example.com", loaded.imap().host());
         assertEquals(ConnectionSecurity.SSL_TLS, loaded.smtp().security());
+        assertEquals("", loaded.replyToAddress());
         assertEquals("INBOX.Trash", loaded.trashMailbox());
         assertEquals(25, loaded.limits().maxSearchLimit());
     }

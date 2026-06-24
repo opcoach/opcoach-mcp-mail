@@ -35,6 +35,7 @@ public final class TerminalSetupApplication {
                 prompter.ask("Email username", "training@example.com"),
                 prompter.ask("Sender address", "training@example.com"),
                 prompter.ask("Sender name", "MCP Training"),
+                prompter.ask("Reply-To address (optional)", ""),
                 prompter.ask("Sent folder", "INBOX.Sent"),
                 prompter.ask("Trash folder", "INBOX.Trash")
         );

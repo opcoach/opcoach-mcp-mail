@@ -331,6 +331,7 @@ class JakartaImapClientTest {
                 "training@example.com",
                 "training@example.com",
                 "MCP Training",
+                "",
                 "Sent",
                 "Trash",
                 MailLimits.DEFAULTS,

@@ -69,6 +69,7 @@ public final class SetupUiApplication {
                         required(values, "username"),
                         required(values, "fromAddress"),
                         values.getOrDefault("fromName", ""),
+                        values.getOrDefault("replyToAddress", ""),
                         required(values, "sentMailbox"),
                         required(values, "trashMailbox")
                 );
@@ -130,6 +131,7 @@ public final class SetupUiApplication {
                     <label>Email username<input name="username" value="training@example.com" required></label>
                     <label>Sender address<input name="fromAddress" value="training@example.com" required></label>
                     <label>Sender name<input name="fromName" value="MCP Training"></label>
+                    <label>Reply-To address<input name="replyToAddress" placeholder="optional"></label>
                     <label>Sent folder<input name="sentMailbox" value="INBOX.Sent" required></label>
                     <label>Trash folder<input name="trashMailbox" value="INBOX.Trash" required></label>
                     <label>App password<input name="password" type="password" autocomplete="new-password"></label>
