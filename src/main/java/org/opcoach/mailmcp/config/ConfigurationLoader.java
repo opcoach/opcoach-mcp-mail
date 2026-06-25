@@ -23,7 +23,7 @@ public final class ConfigurationLoader {
             throw new ConfigurationException("""
                     Missing configuration.
                     Run ./mvnw -Psetup clean verify to create a local profile.
-                    The password is stored only when the platform supports a local keychain.
+                    The password is stored only when the platform supports local secret storage.
                     Expected file: %s
                     """.formatted(configPath.toAbsolutePath()));
         }

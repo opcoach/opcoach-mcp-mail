@@ -10,6 +10,7 @@ RUN_DIR="${MAIL_MCP_RUN_DIR:-$REPO_DIR/.run}"
 PID_FILE="$RUN_DIR/opcoach-mcp-mail.pid"
 LOG_FILE="$RUN_DIR/opcoach-mcp-mail.log"
 SERVER_REGISTRY_DIR="$BASE_DIR/servers"
+VAULT_FILE="${MAIL_MCP_VAULT_FILE:-$BASE_DIR/secrets.enc}"
 
 source "$SCRIPT_DIR/java-runtime"
 
@@ -48,6 +49,13 @@ listening_pids() {
 process_command() {
   local pid="$1"
   ps -p "$pid" -o command= 2>/dev/null || true
+}
+
+needs_vault_password() {
+  [[ -f "$VAULT_FILE" \
+    && -z "${MAIL_MCP_PASSWORD:-}" \
+    && -z "${MAIL_MCP_VAULT_PASSWORD:-}" \
+    && -z "${MAIL_MCP_VAULT_PASSWORD_STDIN:-}" ]]
 }
 
 register_server() {
@@ -147,6 +155,10 @@ if [[ -n "$TOKEN" ]]; then
 fi
 
 if [[ "$FOREGROUND" -eq 1 ]]; then
+  export MAIL_MCP_VAULT_FILE="$VAULT_FILE"
+  if needs_vault_password; then
+    export MAIL_MCP_VAULT_PASSWORD_STDIN=1
+  fi
   exec "${COMMAND[@]}"
 fi
 
@@ -174,12 +186,29 @@ if [[ -n "$PORT_PIDS" ]]; then
   exit 1
 fi
 
+VAULT_PASSWORD_INPUT=""
+USE_VAULT_STDIN=0
+if needs_vault_password; then
+  read -r -s -p "Vault password: " VAULT_PASSWORD_INPUT
+  echo
+  USE_VAULT_STDIN=1
+fi
+
 {
   echo
   echo "===== $(date '+%Y-%m-%d %H:%M:%S') starting profile=$PROFILE host=$HOST port=$PORT ====="
 } >> "$LOG_FILE"
-nohup "${COMMAND[@]}" >> "$LOG_FILE" 2>&1 &
+if [[ "$USE_VAULT_STDIN" -eq 1 ]]; then
+  printf '%s\n' "$VAULT_PASSWORD_INPUT" | \
+    MAIL_MCP_VAULT_FILE="$VAULT_FILE" \
+    MAIL_MCP_VAULT_PASSWORD_STDIN=1 \
+    nohup "${COMMAND[@]}" >> "$LOG_FILE" 2>&1 &
+else
+  MAIL_MCP_VAULT_FILE="$VAULT_FILE" \
+    nohup "${COMMAND[@]}" >> "$LOG_FILE" 2>&1 &
+fi
 PID=$!
+VAULT_PASSWORD_INPUT=""
 printf '%s\n' "$PID" > "$PID_FILE"
 
 sleep 1

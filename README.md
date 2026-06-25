@@ -120,7 +120,66 @@ After rebooting the machine, restart every registered server from the manager, o
 bin/start-all
 ```
 
-Passwords are not written to configuration files. On macOS, they are stored in the local keychain with the profile name. On other platforms, use `MAIL_MCP_PASSWORD` temporarily until a durable backend is added.
+Passwords are not written to configuration files. On macOS, they are stored in the local keychain with the profile name. On Linux, they are stored in a local encrypted vault protected by a vault password. On other platforms, use `MAIL_MCP_PASSWORD` temporarily.
+
+## Headless Linux Server
+
+Do not expose a public setup URL such as `mcp-mail.example.com` for entering mailbox passwords. On a headless server, keep the setup UI bound to `127.0.0.1` and reach it through an SSH tunnel.
+
+From your workstation, open a tunnel to the server:
+
+```bash
+ssh -L 18100:127.0.0.1:18100 user@contabo-server
+```
+
+In that SSH session, build the jar and start the temporary setup UI on the tunneled port:
+
+```bash
+cd $HOME/git/opcoach-mcp-mail
+./mvnw -DskipTests package
+
+PROFILE=olivier
+MCP_PORT=8096
+CONFIG=$HOME/.opcoach-mcp-mail/profiles/$PROFILE.properties
+RUN_DIR=$HOME/.opcoach-mcp-mail/run/$PROFILE
+
+mkdir -p "$(dirname "$CONFIG")" "$RUN_DIR"
+
+MAIL_MCP_CONFIG="$CONFIG" \
+bin/setup-ui --profile "$PROFILE" --port 18100
+```
+
+Then open this URL on your workstation:
+
+```text
+http://127.0.0.1:18100/?token=the-token-printed-by-the-command
+```
+
+On Linux, the form includes a `Vault password` field. This password protects the local encrypted vault:
+
+```text
+~/.opcoach-mcp-mail/secrets.enc
+```
+
+The vault stores mailbox passwords encrypted with AES-GCM. The encryption key is derived from the vault password with PBKDF2-HMAC-SHA256. The vault file is restricted to the local user when the filesystem supports POSIX permissions.
+
+After saving the form, start the local MCP server:
+
+```bash
+MAIL_MCP_CONFIG="$CONFIG" \
+MAIL_MCP_RUN_DIR="$RUN_DIR" \
+bin/start-server --profile "$PROFILE" --host 127.0.0.1 --port "$MCP_PORT"
+```
+
+If the encrypted vault exists, `bin/start-server` asks for the vault password and sends it to Java through standard input at startup. It is not put on the command line.
+
+After rebooting the server, restart every registered profile with:
+
+```bash
+bin/start-all
+```
+
+`bin/start-all` asks once for the vault password and starts all registered local MCP mail servers.
 
 ## Script Reference
 
@@ -133,7 +192,7 @@ bin/manager
 Manual helpers:
 
 ```bash
-bin/setup-ui --profile default
+bin/setup-ui --profile default --port 18100
 bin/manager
 bin/start-server --profile default --port 8095
 bin/start-all
@@ -170,7 +229,7 @@ For direct jar usage, the default non-secret configuration file is:
 ~/.opcoach-mcp-mail/config.properties
 ```
 
-The macOS keychain is supported for passwords. On other platforms, use `MAIL_MCP_PASSWORD` temporarily until a durable backend is added.
+The macOS keychain is supported for passwords. Linux uses the encrypted local vault. On other platforms, use `MAIL_MCP_PASSWORD` temporarily.
 
 ## Codex HTTP Configuration
 

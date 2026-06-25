@@ -13,6 +13,6 @@ public record ResolvedSecret(String value, SecretSource source) {
 
     public enum SecretSource {
         ENVIRONMENT,
-        KEYCHAIN
+        LOCAL_STORE
     }
 }

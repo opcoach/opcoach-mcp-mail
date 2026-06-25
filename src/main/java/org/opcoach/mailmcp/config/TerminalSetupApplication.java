@@ -44,12 +44,12 @@ public final class TerminalSetupApplication {
         char[] password = prompter.askPassword("Password or app password");
         try {
             if (password.length > 0) {
-                KeychainSecretStore secretStore = new KeychainSecretStore();
+                SecretStore secretStore = secretStoreForWrite(prompter);
                 if (secretStore.supportsDurableStorage()) {
                     secretStore.writePassword(profile, password);
-                    System.out.printf("Password saved in the local keychain for profile %s.%n", profile);
+                    System.out.printf("Password saved in the local secret store for profile %s.%n", profile);
                 } else {
-                    System.out.println("Password not stored on this platform. Enter it in the manager when starting the server.");
+                    System.out.println("Password not stored on this platform. Use MAIL_MCP_PASSWORD when starting the server.");
                 }
             } else {
                 System.out.println("No password saved. You can use MAIL_MCP_PASSWORD temporarily.");
@@ -69,17 +69,38 @@ public final class TerminalSetupApplication {
             return 2;
         }
         try {
-            KeychainSecretStore secretStore = new KeychainSecretStore();
+            SecretStore secretStore = secretStoreForWrite(prompter);
             if (!secretStore.supportsDurableStorage()) {
                 System.err.println("Durable password storage is not supported on this platform.");
                 return 2;
             }
             secretStore.writePassword(profile, password);
-            System.out.printf("Password saved in the local keychain for profile %s.%n", profile);
+            System.out.printf("Password saved in the local secret store for profile %s.%n", profile);
             return 0;
         } finally {
             Arrays.fill(password, '\0');
         }
+    }
+
+    private static SecretStore secretStoreForWrite(TerminalPrompter prompter) {
+        if (!LocalSecretStore.systemUsesEncryptedVault() || hasVaultPasswordEnvironment()) {
+            return LocalSecretStore.system();
+        }
+        System.out.println("Linux encrypted vault: choose the vault password that protects local mail secrets.");
+        char[] vaultPassword = prompter.askPassword("Vault password");
+        try {
+            if (vaultPassword.length == 0) {
+                throw new ConfigurationException("Vault password is required to store the mail password on Linux.");
+            }
+            return LocalSecretStore.system(vaultPassword);
+        } finally {
+            Arrays.fill(vaultPassword, '\0');
+        }
+    }
+
+    private static boolean hasVaultPasswordEnvironment() {
+        String value = System.getenv(EncryptedVaultSecretStore.VAULT_PASSWORD_ENV);
+        return value != null && !value.isBlank();
     }
 
     static final class TerminalPrompter {

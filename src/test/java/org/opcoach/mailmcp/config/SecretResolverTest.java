@@ -42,6 +42,20 @@ class SecretResolverTest {
     }
 
     @Test
+    void resolvesLocalStoredPassword() {
+        MailConfiguration configuration = configuration("default");
+        SecretResolver resolver = new SecretResolver(
+                Map.of(),
+                _ -> Optional.of("stored-secret")
+        );
+
+        ResolvedSecret secret = resolver.resolve(configuration);
+
+        assertEquals("stored-secret", secret.value());
+        assertEquals(ResolvedSecret.SecretSource.LOCAL_STORE, secret.source());
+    }
+
+    @Test
     void failsWhenNoSecretIsAvailable() {
         SecretResolver resolver = new SecretResolver(Map.of(), _ -> Optional.empty());
 

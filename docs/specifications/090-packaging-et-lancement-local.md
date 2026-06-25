@@ -96,5 +96,5 @@ Exemple de première expérience attendue:
 ```text
 Configuration absente.
 Lancez ./mvnw -Psetup clean verify pour créer un profil local.
-Le mot de passe sera stocké dans le trousseau du système.
+Le mot de passe sera stocké dans le trousseau macOS ou dans le vault chiffré Linux quand la plateforme le supporte.
 ```

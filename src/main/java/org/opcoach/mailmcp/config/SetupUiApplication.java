@@ -26,18 +26,22 @@ public final class SetupUiApplication {
     }
 
     public static void main(String[] args) throws Exception {
-        String profile = args.length > 0 ? args[0] : "default";
-        run(profile);
+        CliOptions options = CliOptions.parse(args);
+        run(options.profile(), options.port());
     }
 
     public static void run(String profile) throws IOException, InterruptedException {
+        run(profile, 0);
+    }
+
+    public static void run(String profile, int port) throws IOException, InterruptedException {
         String token = newToken();
         CountDownLatch completed = new CountDownLatch(1);
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
         server.createContext("/", exchange -> handle(exchange, profile, token, completed));
         server.start();
-        int port = server.getAddress().getPort();
-        System.out.printf("Local mini UI started on http://127.0.0.1:%d/?token=%s%n", port, token);
+        int actualPort = server.getAddress().getPort();
+        System.out.printf("Local mini UI started on http://127.0.0.1:%d/?token=%s%n", actualPort, token);
         System.out.println("It will stop after validation or expiration.");
         boolean done = completed.await(TIMEOUT.toSeconds(), TimeUnit.SECONDS);
         server.stop(0);
@@ -75,15 +79,19 @@ public final class SetupUiApplication {
                 );
                 new ConfigurationWriter(ConfigurationPaths.defaultConfigPath()).write(draft);
                 char[] password = values.getOrDefault("password", "").toCharArray();
+                char[] vaultPassword = values.getOrDefault("vaultPassword", "").toCharArray();
                 try {
                     if (password.length > 0) {
-                        KeychainSecretStore secretStore = new KeychainSecretStore();
+                        SecretStore secretStore = vaultPassword.length > 0
+                                ? LocalSecretStore.system(vaultPassword)
+                                : LocalSecretStore.system();
                         if (secretStore.supportsDurableStorage()) {
                             secretStore.writePassword(profile, password);
                         }
                     }
                 } finally {
                     Arrays.fill(password, '\0');
+                    Arrays.fill(vaultPassword, '\0');
                 }
                 send(exchange, 200, "text/html; charset=utf-8", success());
                 completed.countDown();
@@ -135,11 +143,23 @@ public final class SetupUiApplication {
                     <label>Sent folder<input name="sentMailbox" value="INBOX.Sent" required></label>
                     <label>Trash folder<input name="trashMailbox" value="INBOX.Trash" required></label>
                     <label>App password<input name="password" type="password" autocomplete="new-password"></label>
+                    %s
                     <button type="submit">Save</button>
                   </form>
                 </body>
                 </html>
-                """.formatted(escape(profile), escape(token));
+                """.formatted(escape(profile), escape(token), vaultPasswordField());
+    }
+
+    private static String vaultPasswordField() {
+        if (!LocalSecretStore.systemUsesEncryptedVault()) {
+            return "";
+        }
+        return """
+                    <label>Vault password<input name="vaultPassword" type="password" autocomplete="new-password">
+                      <small>Linux only: protects the encrypted local password vault.</small>
+                    </label>
+                """;
     }
 
     private static String success() {
@@ -204,6 +224,53 @@ public final class SetupUiApplication {
         exchange.sendResponseHeaders(status, bytes.length);
         try (OutputStream output = exchange.getResponseBody()) {
             output.write(bytes);
+        }
+    }
+
+    private record CliOptions(String profile, int port) {
+
+        static CliOptions parse(String[] args) {
+            String profile = "default";
+            int port = 0;
+            boolean profileSet = false;
+            for (int index = 0; index < args.length; index++) {
+                String arg = args[index];
+                switch (arg) {
+                    case "--profile" -> {
+                        profile = requireValue(args, ++index, "--profile");
+                        profileSet = true;
+                    }
+                    case "--port" -> port = parsePort(requireValue(args, ++index, "--port"));
+                    default -> {
+                        if (!arg.startsWith("-") && !profileSet) {
+                            profile = arg;
+                            profileSet = true;
+                        } else {
+                            throw new IllegalArgumentException("Unknown setup UI argument: " + arg);
+                        }
+                    }
+                }
+            }
+            return new CliOptions(profile, port);
+        }
+
+        private static String requireValue(String[] args, int index, String option) {
+            if (index >= args.length || args[index].startsWith("--")) {
+                throw new IllegalArgumentException("Missing value for " + option);
+            }
+            return args[index];
+        }
+
+        private static int parsePort(String value) {
+            try {
+                int parsed = Integer.parseInt(value);
+                if (parsed < 0 || parsed > 65535) {
+                    throw new NumberFormatException(value);
+                }
+                return parsed;
+            } catch (NumberFormatException exception) {
+                throw new IllegalArgumentException("Invalid setup UI port: " + value);
+            }
         }
     }
 }

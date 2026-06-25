@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 BASE_DIR="${MAIL_MCP_BASE_DIR:-$HOME/.opcoach-mcp-mail}"
 SERVER_REGISTRY_DIR="$BASE_DIR/servers"
+VAULT_FILE="${MAIL_MCP_VAULT_FILE:-$BASE_DIR/secrets.enc}"
 BUILD_IF_MISSING=1
 DRY_RUN=0
 
@@ -82,6 +83,13 @@ validate_server() {
   fi
 }
 
+needs_vault_password() {
+  [[ -f "$VAULT_FILE" \
+    && -z "${MAIL_MCP_PASSWORD:-}" \
+    && -z "${MAIL_MCP_VAULT_PASSWORD:-}" \
+    && -z "${MAIL_MCP_VAULT_PASSWORD_STDIN:-}" ]]
+}
+
 shopt -s nullglob
 SERVER_FILES=("$SERVER_REGISTRY_DIR"/*.env)
 shopt -u nullglob
@@ -90,6 +98,14 @@ if (( ${#SERVER_FILES[@]} == 0 )); then
   echo "No registered local MCP mail servers found in $SERVER_REGISTRY_DIR."
   echo "Run bin/local-wizard once per mailbox to register them."
   exit 0
+fi
+
+VAULT_PASSWORD_INPUT=""
+USE_VAULT_STDIN=0
+if [[ "$DRY_RUN" -eq 0 ]] && needs_vault_password; then
+  read -r -s -p "Vault password: " VAULT_PASSWORD_INPUT
+  echo
+  USE_VAULT_STDIN=1
 fi
 
 FAILURES=0
@@ -110,13 +126,27 @@ for server_file in "${SERVER_FILES[@]}"; do
     ARGS+=(--no-build)
   fi
 
-  if ! env \
-    MAIL_MCP_CONFIG="$CONFIG_FILE" \
-    MAIL_MCP_RUN_DIR="$RUN_DIR" \
-    "$REPO_DIR/bin/start-server" "${ARGS[@]}"; then
-    FAILURES=$((FAILURES + 1))
+  if [[ "$USE_VAULT_STDIN" -eq 1 ]]; then
+    if ! printf '%s\n' "$VAULT_PASSWORD_INPUT" | env \
+      MAIL_MCP_CONFIG="$CONFIG_FILE" \
+      MAIL_MCP_RUN_DIR="$RUN_DIR" \
+      MAIL_MCP_VAULT_FILE="$VAULT_FILE" \
+      MAIL_MCP_VAULT_PASSWORD_STDIN=1 \
+      "$REPO_DIR/bin/start-server" "${ARGS[@]}"; then
+      FAILURES=$((FAILURES + 1))
+    fi
+  else
+    if ! env \
+      MAIL_MCP_CONFIG="$CONFIG_FILE" \
+      MAIL_MCP_RUN_DIR="$RUN_DIR" \
+      MAIL_MCP_VAULT_FILE="$VAULT_FILE" \
+      "$REPO_DIR/bin/start-server" "${ARGS[@]}"; then
+      FAILURES=$((FAILURES + 1))
+    fi
   fi
 done
+
+VAULT_PASSWORD_INPUT=""
 
 if (( FAILURES > 0 )); then
   echo "$FAILURES server(s) could not be started." >&2

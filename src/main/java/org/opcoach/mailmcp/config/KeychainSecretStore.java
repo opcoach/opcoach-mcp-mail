@@ -54,6 +54,7 @@ public final class KeychainSecretStore implements SecretStore {
         }
     }
 
+    @Override
     public boolean deletePassword(String profile) {
         if (!isMacOs()) {
             return false;
@@ -77,6 +78,7 @@ public final class KeychainSecretStore implements SecretStore {
         return osName.contains("win");
     }
 
+    @Override
     public boolean supportsDurableStorage() {
         return isMacOs();
     }

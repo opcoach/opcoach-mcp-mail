@@ -17,6 +17,8 @@ If the issue involves a secret or confidential content, replace it with a fake v
 
 - The server is local-first.
 - Passwords are never committed to the repository.
+- macOS passwords are stored in the local keychain.
+- Linux passwords are stored in a local encrypted vault protected by a vault password.
 - MCP responses are bounded.
 - Audit logs do not contain email bodies or attachments.
 - `deleteMessage` moves messages to the configured trash folder; it does not permanently expunge them.

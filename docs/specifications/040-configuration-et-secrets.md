@@ -8,7 +8,8 @@ Définir comment le serveur reçoit sa configuration mail et comment il protège
 
 - La configuration non secrète est stockée dans un fichier local.
 - Les secrets sont fournis par variable d'environnement pour les ateliers courts.
-- Les secrets sont stockés dans le trousseau local pour les usages durables.
+- Les secrets sont stockés dans le trousseau local sur macOS pour les usages durables.
+- Les secrets sont stockés dans un vault local chiffré sur Linux pour les usages durables.
 - Un assistant de configuration local guide l'utilisateur lors du premier lancement.
 - Une mini UI locale peut être proposée, mais uniquement sur `127.0.0.1` avec un jeton temporaire.
 - Aucun mot de passe n'est stocké en clair dans le repo.
@@ -41,7 +42,7 @@ Le mot de passe peut être fourni temporairement:
 export MAIL_MCP_PASSWORD="mot-de-passe-fictif"
 ```
 
-Pour un usage durable, le serveur doit permettre de l'enregistrer dans le keychain local.
+Pour un usage durable, le serveur doit permettre de l'enregistrer dans le trousseau local macOS ou dans le vault chiffré Linux.
 
 L'assistant de configuration demande uniquement les paramètres nécessaires:
 
@@ -53,7 +54,9 @@ L'assistant de configuration demande uniquement les paramètres nécessaires:
 - dossier des envoyés;
 - mot de passe ou mot de passe applicatif.
 
-Le mot de passe est saisi en mode masqué dans le terminal ou dans la mini UI locale, puis enregistré dans le trousseau local. Il n'est jamais écrit dans le fichier de configuration.
+Le mot de passe est saisi en mode masqué dans le terminal ou dans la mini UI locale, puis enregistré dans le stockage secret local disponible. Il n'est jamais écrit dans le fichier de configuration.
+
+Sur Linux, le vault chiffré est protégé par un mot de passe maître. La mini UI locale peut demander ce mot de passe maître en plus du mot de passe mail. Le serveur peut aussi recevoir ce mot de passe maître au démarrage via l'entrée standard, afin d'éviter de le placer sur la ligne de commande.
 
 La mini UI de configuration, si elle est activée, doit:
 
@@ -67,7 +70,7 @@ La mini UI de configuration, si elle est activée, doit:
 ## Points d'attention
 
 - Les exemples utilisent uniquement des valeurs fictives.
-- En production locale, le keychain est préféré aux variables d'environnement.
+- En production locale, le trousseau macOS ou le vault chiffré Linux est préféré aux variables d'environnement.
 - Le serveur doit afficher un avertissement si un mot de passe est lu depuis l'environnement.
 - Les erreurs d'authentification ne doivent pas inclure la valeur du mot de passe.
 - Les fichiers de configuration doivent être exclus des commits quand ils contiennent des paramètres personnels.
@@ -97,5 +100,5 @@ Commande indicative pour lancer la mini UI locale:
 Message attendu:
 
 ```text
-Mot de passe enregistré dans le trousseau local pour le profil default.
+Mot de passe enregistré dans le stockage secret local pour le profil default.
 ```

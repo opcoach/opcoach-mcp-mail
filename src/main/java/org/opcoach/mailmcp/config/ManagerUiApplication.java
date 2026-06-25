@@ -65,7 +65,7 @@ public final class ManagerUiApplication {
 
     private final ServerRegistry registry = ServerRegistry.defaultRegistry();
     private final ServerProcessManager processManager = ServerProcessManager.currentApplication();
-    private final KeychainSecretStore secretStore = new KeychainSecretStore();
+    private final SecretStore secretStore = LocalSecretStore.system();
     private final ServerTableModel tableModel = new ServerTableModel();
 
     private JFrame frame;
@@ -281,7 +281,7 @@ public final class ManagerUiApplication {
         row = addField(fields, c, row, "Reply-To address", replyToAddressField, "Optional.");
         row = addField(fields, c, row, "Sent folder", sentMailboxField, "");
         row = addField(fields, c, row, "Trash folder", trashMailboxField, "");
-        addField(fields, c, row, "Password", passwordField, "Stored in Keychain when supported; otherwise used for this start.");
+        addField(fields, c, row, "Password", passwordField, "Stored locally when supported; otherwise used for this start.");
 
         JScrollPane scroll = new JScrollPane(fields);
         scroll.setBorder(null);
