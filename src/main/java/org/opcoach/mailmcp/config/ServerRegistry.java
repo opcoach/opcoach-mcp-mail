@@ -86,6 +86,15 @@ public final class ServerRegistry {
         }
     }
 
+    public void delete(ServerRegistration registration) {
+        delete(registration.profile());
+        try {
+            Files.deleteIfExists(registration.configFile());
+        } catch (IOException exception) {
+            throw new ConfigurationException("Unable to delete profile configuration: " + registration.configFile(), exception);
+        }
+    }
+
     private java.util.Optional<ServerRegistration> read(Path file) {
         try {
             Map<String, String> values = parseEnvFile(file);

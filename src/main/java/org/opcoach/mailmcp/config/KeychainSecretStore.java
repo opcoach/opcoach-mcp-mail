@@ -54,6 +54,21 @@ public final class KeychainSecretStore implements SecretStore {
         }
     }
 
+    public boolean deletePassword(String profile) {
+        if (!isMacOs()) {
+            return false;
+        }
+        ProcessResult result = run("security", "delete-generic-password", "-a", profile, "-s", SERVICE);
+        if (result.exitCode() == 0) {
+            return true;
+        }
+        String stderr = result.stderr().toLowerCase(Locale.ROOT);
+        if (stderr.contains("could not be found") || stderr.contains("not found")) {
+            return false;
+        }
+        throw new ConfigurationException("Unable to delete password from the keychain: " + result.stderr());
+    }
+
     private boolean isMacOs() {
         return osName.contains("mac");
     }

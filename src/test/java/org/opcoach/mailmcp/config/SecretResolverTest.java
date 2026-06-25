@@ -56,6 +56,7 @@ class SecretResolverTest {
 
         assertEquals(false, store.supportsDurableStorage());
         assertEquals(Optional.empty(), store.readPassword("default"));
+        assertEquals(false, store.deletePassword("default"));
         assertThrows(ConfigurationException.class, () -> store.writePassword("default", "secret".toCharArray()));
     }
 

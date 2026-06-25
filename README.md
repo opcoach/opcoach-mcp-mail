@@ -72,6 +72,7 @@ Main actions:
 - `Save`: save the selected profile without starting it.
 - `Start`: start the selected local MCP server.
 - `Stop`: stop the selected local MCP server.
+- `Delete`: stop the selected local MCP server if needed, then remove its local registration, configuration, and stored password when supported after confirmation.
 - `Copy URL`: copy the local MCP endpoint.
 - `Refresh`: reload server status.
 

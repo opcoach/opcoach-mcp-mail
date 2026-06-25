@@ -53,4 +53,26 @@ class ServerRegistryTest {
         assertEquals("default", registrations.getFirst().profile());
         assertEquals(8095, registrations.getFirst().port());
     }
+
+    @Test
+    void deletesRegistrationAndProfileConfiguration() throws Exception {
+        ServerRegistry registry = new ServerRegistry(tempDir);
+        Path configFile = tempDir.resolve("profiles").resolve("default.properties");
+        Files.createDirectories(configFile.getParent());
+        Files.writeString(configFile, "mail.username=training@example.com\n");
+        ServerRegistration registration = new ServerRegistration(
+                "default",
+                configFile,
+                tempDir.resolve("run").resolve("default"),
+                "127.0.0.1",
+                8095
+        );
+        registry.write(registration);
+
+        registry.delete(registration);
+
+        assertTrue(Files.notExists(tempDir.resolve("servers").resolve("default.env")));
+        assertTrue(Files.notExists(configFile));
+        assertTrue(registry.list().isEmpty());
+    }
 }

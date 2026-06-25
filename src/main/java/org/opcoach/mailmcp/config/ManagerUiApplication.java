@@ -156,6 +156,7 @@ public final class ManagerUiApplication {
         actions.add(new GradientButton("Save", INDIGO_SOFT, color("#8F88C7"), _ -> saveCurrentProfile()));
         actions.add(new GradientButton("Start", GREEN, color("#80C048"), _ -> startCurrentProfile()));
         actions.add(new GradientButton("Stop", ROSE, color("#E975A7"), _ -> stopSelectedProfile()));
+        actions.add(new GradientButton("Delete", color("#B43A67"), ROSE, _ -> deleteSelectedProfile()));
         actions.add(new OutlineButton("Copy URL", _ -> copySelectedUrl()));
         actions.add(new OutlineButton("Refresh", _ -> refresh()));
 
@@ -485,6 +486,44 @@ public final class ManagerUiApplication {
             refresh();
             selectProfile(registration.profile());
             setStatus("Stopped " + registration.profile() + ".");
+        } catch (RuntimeException exception) {
+            showError(exception);
+        }
+    }
+
+    private void deleteSelectedProfile() {
+        ServerRegistration registration = selectedRegistration();
+        if (registration == null) {
+            setStatus("Select a registered server before deleting it.");
+            return;
+        }
+        String message = """
+                Delete profile "%s"?
+
+                The local MCP server will be stopped if it is running.
+                The manager registration and local configuration file will be deleted.
+                The stored password will be removed when the platform supports it.
+                Mailbox messages are never deleted by this action.
+                """.formatted(registration.profile());
+        int choice = JOptionPane.showConfirmDialog(
+                frame,
+                message,
+                "Delete server",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+        if (choice != JOptionPane.YES_OPTION) {
+            setStatus("Delete cancelled.");
+            return;
+        }
+        try {
+            processManager.stop(registration);
+            registry.delete(registration);
+            boolean passwordDeleted = secretStore.deletePassword(registration.profile());
+            refresh();
+            newProfile();
+            String secretStatus = passwordDeleted ? " Stored password was removed." : "";
+            setStatus("Deleted " + registration.profile() + ". Mailbox messages were not modified." + secretStatus);
         } catch (RuntimeException exception) {
             showError(exception);
         }
