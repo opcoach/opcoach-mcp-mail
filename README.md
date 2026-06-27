@@ -65,6 +65,7 @@ The manager is the recommended local workflow. It lets you create mailbox profil
 
 The left panel lists registered profiles with their local URL and running status. The right panel edits the selected profile: incoming mail, outgoing mail, identity, optional Reply-To address, local host, and local port. Use `Save and start` when the profile is ready, then `Copy URL` to configure the AI client.
 When Reply-To is empty, sent emails do not include a `Reply-To` header.
+The `Mail check` column validates the mailbox configuration in the background: MCP health when the server is running, IMAP access, `INBOX` message count, and existence of the configured Sent and Trash folders. Port conflicts with other registered profiles are rejected before saving.
 
 Main actions:
 

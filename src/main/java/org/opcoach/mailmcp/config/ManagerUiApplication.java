@@ -1,5 +1,8 @@
 package org.opcoach.mailmcp.config;
 
+import org.opcoach.mailmcp.mail.JakartaImapClient;
+import org.opcoach.mailmcp.mail.MailboxInfo;
+
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -11,6 +14,7 @@ import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
@@ -38,12 +42,29 @@ import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.io.IOException;
+import java.net.URI;
 import java.net.ServerSocket;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class ManagerUiApplication {
 
@@ -54,7 +75,7 @@ public final class ManagerUiApplication {
     private static final Color BLUE_LIGHT = color("#DBECED");
     private static final Color ROSE = color("#E75294");
     private static final Color ROSE_LIGHT = color("#F9DDE9");
-    private static final Color YELLOW = color("#FABD43");
+    private static final Color YELLOW_LIGHT = color("#FFF1CF");
     private static final Color GREEN = color("#58B025");
     private static final Color ANTHRACITE = color("#4B4B4D");
     private static final Color TEXT = color("#25252A");
@@ -62,11 +83,22 @@ public final class ManagerUiApplication {
     private static final Color SURFACE = color("#F8F8FC");
     private static final Color CARD = Color.WHITE;
     private static final Color BORDER = color("#DBDBDB");
+    private static final Duration HEALTH_TIMEOUT = Duration.ofSeconds(2);
 
     private final ServerRegistry registry = ServerRegistry.defaultRegistry();
     private final ServerProcessManager processManager = ServerProcessManager.currentApplication();
     private final SecretStore secretStore = LocalSecretStore.system();
     private final ServerTableModel tableModel = new ServerTableModel();
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(HEALTH_TIMEOUT)
+            .build();
+    private final ExecutorService healthExecutor = Executors.newFixedThreadPool(2, runnable -> {
+        Thread thread = new Thread(runnable, "opcoach-mcp-mail-health");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private final java.util.Map<String, HealthStatus> healthStatuses = new ConcurrentHashMap<>();
+    private final Set<String> healthChecksInFlight = ConcurrentHashMap.newKeySet();
 
     private JFrame frame;
     private JTable table;
@@ -86,6 +118,10 @@ public final class ManagerUiApplication {
     private JTextField trashMailboxField;
     private JPasswordField passwordField;
     private JLabel statusLabel;
+    private JButton startButton;
+    private JButton stopButton;
+    private JButton deleteButton;
+    private JButton copyUrlButton;
 
     private ManagerUiApplication() {
     }
@@ -96,17 +132,23 @@ public final class ManagerUiApplication {
 
     private void show() {
         installLookAndFeel();
-        frame = new JFrame("OPCoach MCP Mail");
+        frame = new JFrame("MCP Mail Local Manager");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setMinimumSize(new Dimension(1040, 720));
         frame.setLayout(new BorderLayout());
         frame.setContentPane(shell());
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent event) {
+                healthExecutor.shutdownNow();
+            }
+        });
         refresh();
         newProfile();
         frame.pack();
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
-        new Timer(3000, _ -> refreshStatuses()).start();
+        new Timer(30000, _ -> refreshStatuses()).start();
     }
 
     private JPanel shell() {
@@ -139,7 +181,7 @@ public final class ManagerUiApplication {
         copy.add(eyebrow, c);
 
         c.gridy++;
-        JLabel title = new JLabel("Mail Manager");
+        JLabel title = new JLabel("MCP Mail Local Manager");
         title.setForeground(Color.WHITE);
         title.setFont(title.getFont().deriveFont(Font.BOLD, 34f));
         copy.add(title, c);
@@ -154,10 +196,14 @@ public final class ManagerUiApplication {
         JPanel actions = transparentPanel(new FlowLayout(FlowLayout.RIGHT, 10, 6));
         actions.add(new GradientButton("New", BLUE, color("#70B6BD"), _ -> newProfile()));
         actions.add(new GradientButton("Save", INDIGO_SOFT, color("#8F88C7"), _ -> saveCurrentProfile()));
-        actions.add(new GradientButton("Start", GREEN, color("#80C048"), _ -> startCurrentProfile()));
-        actions.add(new GradientButton("Stop", ROSE, color("#E975A7"), _ -> stopSelectedProfile()));
-        actions.add(new GradientButton("Delete", color("#B43A67"), ROSE, _ -> deleteSelectedProfile()));
-        actions.add(new OutlineButton("Copy URL", _ -> copySelectedUrl()));
+        startButton = new GradientButton("Start", GREEN, color("#80C048"), _ -> startCurrentProfile());
+        stopButton = new GradientButton("Stop", ROSE, color("#E975A7"), _ -> stopSelectedProfile());
+        deleteButton = new GradientButton("Delete", color("#B43A67"), ROSE, _ -> deleteSelectedProfile());
+        copyUrlButton = new OutlineButton("Copy URL", _ -> copySelectedUrl());
+        actions.add(startButton);
+        actions.add(stopButton);
+        actions.add(deleteButton);
+        actions.add(copyUrlButton);
         actions.add(new OutlineButton("Refresh", _ -> refresh()));
 
         hero.add(copy, BorderLayout.CENTER);
@@ -177,11 +223,11 @@ public final class ManagerUiApplication {
         c.insets = new Insets(0, 0, 0, 16);
 
         c.gridx = 0;
-        c.weightx = 0.45;
+        c.weightx = 0.60;
         root.add(serversCard(), c);
 
         c.gridx = 1;
-        c.weightx = 0.55;
+        c.weightx = 0.40;
         c.insets = new Insets(0, 0, 0, 0);
         root.add(formCard(), c);
         return root;
@@ -191,7 +237,7 @@ public final class ManagerUiApplication {
         CardPanel card = new CardPanel();
         card.setLayout(new BorderLayout(0, 14));
         card.setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
-        card.add(sectionHeader("Registered servers", "Running status and MCP URLs"), BorderLayout.NORTH);
+        card.add(sectionHeader("Registered servers", "Running and mailbox health"), BorderLayout.NORTH);
 
         table = new JTable(tableModel);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -207,13 +253,22 @@ public final class ManagerUiApplication {
         table.getTableHeader().setBackground(Color.WHITE);
         table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER));
         table.setDefaultRenderer(Object.class, new ModernTableRenderer());
-        table.getColumnModel().getColumn(0).setPreferredWidth(120);
-        table.getColumnModel().getColumn(1).setPreferredWidth(230);
-        table.getColumnModel().getColumn(2).setPreferredWidth(90);
-        table.getColumnModel().getColumn(3).setPreferredWidth(180);
+        table.getColumnModel().getColumn(0).setPreferredWidth(110);
+        table.getColumnModel().getColumn(1).setPreferredWidth(210);
+        table.getColumnModel().getColumn(2).setPreferredWidth(85);
+        table.getColumnModel().getColumn(3).setPreferredWidth(170);
         table.getSelectionModel().addListSelectionListener(event -> {
             if (!event.getValueIsAdjusting()) {
                 loadSelectedProfile();
+                updateActionButtons();
+            }
+        });
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                if (event.getClickCount() == 1) {
+                    showHealthDetailsAt(event);
+                }
             }
         });
 
@@ -349,12 +404,20 @@ public final class ManagerUiApplication {
     }
 
     private void refresh() {
-        tableModel.setRows(registry.list());
-        refreshStatuses();
+        String selectedProfile = selectedProfileName();
+        List<ServerRegistration> registrations = registry.list();
+        tableModel.setRows(registrations);
+        queueHealthChecks(registrations, "");
+        restoreSelection(selectedProfile);
+        updateActionButtons();
     }
 
     private void refreshStatuses() {
+        String selectedProfile = selectedProfileName();
+        queueHealthChecks(tableModel.rows(), "");
         tableModel.fireTableDataChanged();
+        restoreSelection(selectedProfile);
+        updateActionButtons();
     }
 
     private void newProfile() {
@@ -374,6 +437,7 @@ public final class ManagerUiApplication {
         trashMailboxField.setText("INBOX.Trash");
         passwordField.setText("");
         table.clearSelection();
+        updateActionButtons();
         setStatus("New profile.");
     }
 
@@ -409,8 +473,10 @@ public final class ManagerUiApplication {
 
     private void saveCurrentProfile() {
         try {
-            saveFromForm();
+            ServerRegistration registration = saveFromForm();
             refresh();
+            selectProfile(registration.profile());
+            queueHealthCheck(registration, "");
             setStatus("Saved " + normalizedProfile() + ".");
         } catch (RuntimeException exception) {
             showError(exception);
@@ -420,6 +486,7 @@ public final class ManagerUiApplication {
     private ServerRegistration saveFromForm() {
         String profile = normalizedProfile();
         ServerRegistration registration = registrationFromForm(profile);
+        validatePortAvailability(registration);
         ConfigurationDraft draft = new ConfigurationDraft(
                 profile,
                 imapHostField.getText().trim(),
@@ -470,6 +537,8 @@ public final class ManagerUiApplication {
             long pid = processManager.start(registration, transientPassword);
             refresh();
             selectProfile(registration.profile());
+            queueHealthCheck(registration, transientPassword);
+            updateActionButtons();
             setStatus("Started " + registration.profile() + " on " + registration.url() + " with PID " + pid + ".");
         } catch (RuntimeException exception) {
             showError(exception);
@@ -483,8 +552,10 @@ public final class ManagerUiApplication {
         }
         try {
             processManager.stop(registration);
+            healthStatuses.put(healthKey(registration), HealthStatus.stopped());
             refresh();
             selectProfile(registration.profile());
+            updateActionButtons();
             setStatus("Stopped " + registration.profile() + ".");
         } catch (RuntimeException exception) {
             showError(exception);
@@ -519,9 +590,11 @@ public final class ManagerUiApplication {
         try {
             processManager.stop(registration);
             registry.delete(registration);
+            healthStatuses.remove(healthKey(registration));
             boolean passwordDeleted = secretStore.deletePassword(registration.profile());
             refresh();
             newProfile();
+            updateActionButtons();
             String secretStatus = passwordDeleted ? " Stored password was removed." : "";
             setStatus("Deleted " + registration.profile() + ". Mailbox messages were not modified." + secretStatus);
         } catch (RuntimeException exception) {
@@ -553,6 +626,23 @@ public final class ManagerUiApplication {
         );
     }
 
+    private void validatePortAvailability(ServerRegistration registration) {
+        for (ServerRegistration existing : registry.list()) {
+            boolean sameProfile = existing.profile().equals(registration.profile());
+            if (!sameProfile && existing.port() == registration.port()) {
+                throw new ConfigurationException("Port " + registration.port() + " is already used by profile " + existing.profile() + ".");
+            }
+        }
+        ServerRegistration selected = selectedRegistration();
+        boolean sameRunningServer = selected != null
+                && selected.profile().equals(registration.profile())
+                && selected.port() == registration.port()
+                && processManager.isRunning(selected);
+        if (!sameRunningServer && !isPortFree(registration.port())) {
+            throw new ConfigurationException("Port " + registration.port() + " is already in use by another process.");
+        }
+    }
+
     private ServerRegistration selectedOrCurrentRegistration() {
         ServerRegistration selected = selectedRegistration();
         if (selected != null) {
@@ -569,12 +659,82 @@ public final class ManagerUiApplication {
         return tableModel.row(table.convertRowIndexToModel(row));
     }
 
+    private void updateActionButtons() {
+        if (startButton == null || stopButton == null || deleteButton == null || copyUrlButton == null) {
+            return;
+        }
+        ServerRegistration selected = selectedRegistration();
+        boolean hasSelection = selected != null;
+        boolean running = hasSelection && processManager.isRunning(selected);
+        startButton.setEnabled(hasSelection && !running);
+        stopButton.setEnabled(hasSelection && running);
+        deleteButton.setEnabled(hasSelection);
+        copyUrlButton.setEnabled(hasSelection);
+    }
+
+    private void showHealthDetailsAt(MouseEvent event) {
+        int row = table.rowAtPoint(event.getPoint());
+        int column = table.columnAtPoint(event.getPoint());
+        if (row < 0 || column < 0 || table.convertColumnIndexToModel(column) != 3) {
+            return;
+        }
+        ServerRegistration registration = tableModel.row(table.convertRowIndexToModel(row));
+        HealthStatus health = healthStatuses.getOrDefault(healthKey(registration), HealthStatus.notChecked());
+        if (!health.hasDetails()) {
+            return;
+        }
+        showHealthDetails(registration, health);
+    }
+
+    private void showHealthDetails(ServerRegistration registration, HealthStatus health) {
+        JTextArea details = new JTextArea(health.diagnosticText(registration));
+        details.setEditable(false);
+        details.setLineWrap(true);
+        details.setWrapStyleWord(true);
+        details.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        details.setCaretPosition(0);
+
+        JScrollPane scroll = new JScrollPane(details);
+        scroll.setPreferredSize(new Dimension(720, 420));
+
+        Object[] options = {"Copy details", "Close"};
+        int choice = JOptionPane.showOptionDialog(
+                frame,
+                scroll,
+                "Mail check details",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.WARNING_MESSAGE,
+                null,
+                options,
+                options[1]
+        );
+        if (choice == 0) {
+            copy(details.getText());
+            setStatus("Copied mail check details for " + registration.profile() + ".");
+        }
+    }
+
     private void selectProfile(String profile) {
         for (int row = 0; row < tableModel.getRowCount(); row++) {
             if (tableModel.row(row).profile().equals(profile)) {
-                table.setRowSelectionInterval(row, row);
+                int viewRow = table.convertRowIndexToView(row);
+                if (viewRow >= 0) {
+                    table.setRowSelectionInterval(viewRow, viewRow);
+                }
+                updateActionButtons();
                 return;
             }
+        }
+    }
+
+    private String selectedProfileName() {
+        ServerRegistration registration = selectedRegistration();
+        return registration == null ? "" : registration.profile();
+    }
+
+    private void restoreSelection(String profile) {
+        if (profile != null && !profile.isBlank()) {
+            selectProfile(profile);
         }
     }
 
@@ -595,14 +755,243 @@ public final class ManagerUiApplication {
     }
 
     private int firstFreePort(int start) {
+        Set<Integer> registeredPorts = new HashSet<>();
+        for (ServerRegistration registration : registry.list()) {
+            registeredPorts.add(registration.port());
+        }
         for (int port = start; port <= 65535; port++) {
-            try (ServerSocket ignored = new ServerSocket(port)) {
+            if (registeredPorts.contains(port)) {
+                continue;
+            }
+            if (isPortFree(port)) {
                 return port;
-            } catch (IOException ignored) {
-                // Try next port.
             }
         }
         return start;
+    }
+
+    private static boolean isPortFree(int port) {
+        try (ServerSocket ignored = new ServerSocket(port)) {
+            return true;
+        } catch (IOException ignored) {
+            return false;
+        }
+    }
+
+    private void queueHealthChecks(List<ServerRegistration> registrations, String passwordOverride) {
+        for (ServerRegistration registration : registrations) {
+            queueHealthCheck(registration, passwordOverride);
+        }
+    }
+
+    private void queueHealthCheck(ServerRegistration registration, String passwordOverride) {
+        String key = healthKey(registration);
+        if (!healthChecksInFlight.add(key)) {
+            return;
+        }
+        healthStatuses.putIfAbsent(key, HealthStatus.checking());
+        healthExecutor.execute(() -> {
+            HealthStatus status;
+            try {
+                status = checkHealth(registration, passwordOverride);
+            } catch (RuntimeException exception) {
+                status = HealthStatus.error(errorLabel(exception), stackTrace(exception), resolutionFor(exception));
+            } finally {
+                healthChecksInFlight.remove(key);
+            }
+            healthStatuses.put(key, status);
+            SwingUtilities.invokeLater(() -> {
+                String selectedProfile = selectedProfileName();
+                tableModel.fireTableDataChanged();
+                restoreSelection(selectedProfile);
+                updateActionButtons();
+            });
+        });
+    }
+
+    private HealthStatus checkHealth(ServerRegistration registration, String passwordOverride) {
+        boolean running = processManager.isRunning(registration);
+        if (running && !httpHealthOk(registration)) {
+            return HealthStatus.warning(
+                    "HTTP unavailable",
+                    "GET " + healthUrl(registration) + " did not return a 2xx response within " + HEALTH_TIMEOUT.toSeconds() + " seconds.",
+                    "Check that the local MCP process is still running and that no other process is bound to this port."
+            );
+        }
+        if (!Files.exists(registration.configFile())) {
+            return HealthStatus.warning(
+                    "Missing config",
+                    "Configuration file not found: " + registration.configFile(),
+                    "Save the profile again from the manager."
+            );
+        }
+        MailConfiguration configuration = new ConfigurationLoader(registration.configFile()).load(registration.profile());
+        String password;
+        try {
+            password = passwordOverride == null || passwordOverride.isBlank()
+                    ? secretStore.readPassword(configuration.profile()).orElse("")
+                    : passwordOverride;
+        } catch (ConfigurationException exception) {
+            return HealthStatus.warning("Secret locked", stackTrace(exception), "Unlock the local secret store or start the server with the vault password.");
+        }
+        if (password.isBlank()) {
+            return HealthStatus.warning(
+                    running ? "MCP ok, secret locked" : "Secret missing",
+                    "No password is available for profile " + configuration.profile() + ".",
+                    "Enter the mailbox password in the manager, or configure the platform local secret store."
+            );
+        }
+        List<MailboxInfo> mailboxes;
+        try {
+            mailboxes = new JakartaImapClient(configuration, password).listMailboxes(false);
+        } catch (RuntimeException exception) {
+            return HealthStatus.error(errorLabel(exception), stackTrace(exception), resolutionFor(exception));
+        }
+        MailboxInfo inbox = findMailbox(mailboxes, "INBOX");
+        if (inbox == null) {
+            return HealthStatus.warning(
+                    "Missing INBOX",
+                    "The IMAP connection succeeded, but no folder named INBOX was returned.\n\nAvailable folders:\n" + mailboxList(mailboxes),
+                    "Check the mailbox provider folder naming and IMAP namespace."
+            );
+        }
+        List<String> missing = new ArrayList<>();
+        if (findMailbox(mailboxes, configuration.sentMailbox()) == null) {
+            missing.add(configuration.sentMailbox());
+        }
+        if (findMailbox(mailboxes, configuration.trashMailbox()) == null) {
+            missing.add(configuration.trashMailbox());
+        }
+        if (!missing.isEmpty()) {
+            String missingLabel = missing.size() == 1 ? missing.getFirst() : missing.getFirst() + " +" + (missing.size() - 1);
+            return HealthStatus.warning(
+                    "Missing " + missingLabel,
+                    "Missing configured folder(s): " + String.join(", ", missing) + "\n\nAvailable folders:\n" + mailboxList(mailboxes),
+                    "Open the mailbox folder list and update the Sent/Trash folder names in the profile configuration."
+            );
+        }
+        return HealthStatus.ok("INBOX " + inbox.messageCount());
+    }
+
+    private boolean httpHealthOk(ServerRegistration registration) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(healthUrl(registration)))
+                    .timeout(HEALTH_TIMEOUT)
+                    .GET()
+                    .build();
+            HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+            return response.statusCode() >= 200 && response.statusCode() < 300;
+        } catch (IOException exception) {
+            return false;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
+    }
+
+    private static String healthUrl(ServerRegistration registration) {
+        return "http://" + registration.host() + ":" + registration.port() + "/health";
+    }
+
+    private static MailboxInfo findMailbox(List<MailboxInfo> mailboxes, String fullName) {
+        for (MailboxInfo mailbox : mailboxes) {
+            if (mailbox.fullName().equalsIgnoreCase(fullName)) {
+                return mailbox;
+            }
+        }
+        return null;
+    }
+
+    private static String mailboxList(List<MailboxInfo> mailboxes) {
+        if (mailboxes.isEmpty()) {
+            return "(none)";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (MailboxInfo mailbox : mailboxes) {
+            if (!builder.isEmpty()) {
+                builder.append('\n');
+            }
+            builder.append("- ")
+                    .append(mailbox.fullName())
+                    .append(" (")
+                    .append(mailbox.messageCount())
+                    .append(")");
+        }
+        return builder.toString();
+    }
+
+    private static String errorLabel(Throwable throwable) {
+        String text = throwableText(throwable);
+        if (containsAny(text, "auth", "login", "credential", "password", "invalid credentials")) {
+            return "Error: Authentication";
+        }
+        if (containsAny(text, "timeout", "timed out", "connection", "unknown host", "network", "refused")) {
+            return "Error: Network";
+        }
+        if (containsAny(text, "ssl", "tls", "certificate", "handshake")) {
+            return "Error: TLS";
+        }
+        if (containsAny(text, "configuration", "missing", "invalid")) {
+            return "Error: Configuration";
+        }
+        return "Error: IMAP";
+    }
+
+    private static String resolutionFor(Throwable throwable) {
+        String text = throwableText(throwable);
+        if (containsAny(text, "auth", "login", "credential", "password", "invalid credentials")) {
+            return "Check the email username and app password. If the provider requires app passwords, generate a new one and save it again in the manager.";
+        }
+        if (containsAny(text, "timeout", "timed out", "connection", "unknown host", "network", "refused")) {
+            return "Check the IMAP host, port, network access, firewall, and whether the provider allows IMAP connections from this machine.";
+        }
+        if (containsAny(text, "ssl", "tls", "certificate", "handshake")) {
+            return "Check the selected security mode, port, and provider TLS certificate requirements.";
+        }
+        if (containsAny(text, "configuration", "missing", "invalid")) {
+            return "Review the profile configuration and save it again.";
+        }
+        return "Review the complete exception below, then check the IMAP provider settings and mailbox folder names.";
+    }
+
+    private static boolean containsAny(String text, String... needles) {
+        for (String needle : needles) {
+            if (text.contains(needle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String throwableText(Throwable throwable) {
+        StringBuilder builder = new StringBuilder();
+        Throwable current = throwable;
+        while (current != null) {
+            if (current.getClass().getName() != null) {
+                builder.append(current.getClass().getName()).append(' ');
+            }
+            if (current.getMessage() != null) {
+                builder.append(current.getMessage()).append(' ');
+            }
+            current = current.getCause();
+        }
+        return builder.toString().toLowerCase(Locale.ROOT);
+    }
+
+    private static String stackTrace(Throwable throwable) {
+        StringWriter writer = new StringWriter();
+        throwable.printStackTrace(new PrintWriter(writer));
+        return writer.toString();
+    }
+
+    private static String blankToDefault(String value, String defaultValue) {
+        return value == null || value.isBlank() ? defaultValue : value;
+    }
+
+    private static String healthKey(ServerRegistration registration) {
+        return registration.profile() + "@" + registration.host() + ":" + registration.port();
     }
 
     private void copy(String value) {
@@ -614,7 +1003,7 @@ public final class ManagerUiApplication {
     }
 
     private void showError(Throwable throwable) {
-        JOptionPane.showMessageDialog(frame, throwable.getMessage(), "OPCoach MCP Mail", JOptionPane.ERROR_MESSAGE);
+        JOptionPane.showMessageDialog(frame, throwable.getMessage(), "MCP Mail Local Manager", JOptionPane.ERROR_MESSAGE);
         setStatus("Error: " + throwable.getMessage());
     }
 
@@ -677,12 +1066,16 @@ public final class ManagerUiApplication {
 
     private final class ServerTableModel extends AbstractTableModel {
 
-        private final String[] columns = {"Profile", "URL", "Status", "Config"};
+        private final String[] columns = {"Profile", "URL", "Run", "Mail check"};
         private List<ServerRegistration> rows = new ArrayList<>();
 
         void setRows(List<ServerRegistration> rows) {
             this.rows = new ArrayList<>(rows);
             fireTableDataChanged();
+        }
+
+        List<ServerRegistration> rows() {
+            return List.copyOf(rows);
         }
 
         ServerRegistration row(int index) {
@@ -711,10 +1104,77 @@ public final class ManagerUiApplication {
                 case 0 -> registration.profile();
                 case 1 -> registration.url();
                 case 2 -> processManager.isRunning(registration) ? "running" : "stopped";
-                case 3 -> registration.configFile().toString();
+                case 3 -> healthStatuses.getOrDefault(healthKey(registration), HealthStatus.notChecked()).label();
                 default -> "";
             };
         }
+    }
+
+    private record HealthStatus(String label, HealthSeverity severity, String detail, String suggestion) {
+
+        static HealthStatus notChecked() {
+            return new HealthStatus("not checked", HealthSeverity.NEUTRAL, "", "");
+        }
+
+        static HealthStatus checking() {
+            return new HealthStatus("checking...", HealthSeverity.NEUTRAL, "", "");
+        }
+
+        static HealthStatus stopped() {
+            return new HealthStatus("not running", HealthSeverity.STOPPED, "", "");
+        }
+
+        static HealthStatus ok(String label) {
+            return new HealthStatus(label, HealthSeverity.OK, "", "");
+        }
+
+        static HealthStatus warning(String label) {
+            return warning(label, "", "");
+        }
+
+        static HealthStatus warning(String label, String detail, String suggestion) {
+            return new HealthStatus(label, HealthSeverity.WARNING, detail, suggestion);
+        }
+
+        static HealthStatus error(String label) {
+            return error(label, "", "");
+        }
+
+        static HealthStatus error(String label, String detail, String suggestion) {
+            return new HealthStatus(label, HealthSeverity.ERROR, detail, suggestion);
+        }
+
+        boolean hasDetails() {
+            return (detail != null && !detail.isBlank()) || (suggestion != null && !suggestion.isBlank());
+        }
+
+        String diagnosticText(ServerRegistration registration) {
+            return """
+                    Profile: %s
+                    URL: %s
+                    Status: %s
+
+                    Suggested resolution:
+                    %s
+
+                    Details:
+                    %s
+                    """.formatted(
+                    registration.profile(),
+                    registration.url(),
+                    label,
+                    blankToDefault(suggestion, "No automatic suggestion is available."),
+                    blankToDefault(detail, "No diagnostic details are available.")
+            );
+        }
+    }
+
+    private enum HealthSeverity {
+        OK,
+        WARNING,
+        ERROR,
+        STOPPED,
+        NEUTRAL
     }
 
     private static final class GradientPanel extends JPanel {
@@ -783,10 +1243,19 @@ public final class ManagerUiApplication {
         }
 
         @Override
+        public void setEnabled(boolean enabled) {
+            super.setEnabled(enabled);
+            setCursor(enabled ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
+            setForeground(enabled ? Color.WHITE : color("#909096"));
+        }
+
+        @Override
         protected void paintComponent(Graphics graphics) {
             Graphics2D g = (Graphics2D) graphics.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setPaint(new GradientPaint(0, 0, start, getWidth(), getHeight(), end));
+            Color paintStart = isEnabled() ? start : color("#E4E4EA");
+            Color paintEnd = isEnabled() ? end : color("#D8D8E0");
+            g.setPaint(new GradientPaint(0, 0, paintStart, getWidth(), getHeight(), paintEnd));
             g.fillRoundRect(0, 0, getWidth(), getHeight(), 22, 22);
             g.setColor(new Color(255, 255, 255, 38));
             g.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 22, 22);
@@ -803,10 +1272,16 @@ public final class ManagerUiApplication {
         }
 
         @Override
+        public void setEnabled(boolean enabled) {
+            super.setEnabled(enabled);
+            setForeground(enabled ? INDIGO : color("#A2A2AA"));
+        }
+
+        @Override
         protected void paintComponent(Graphics graphics) {
             Graphics2D g = (Graphics2D) graphics.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setColor(new Color(255, 255, 255, 220));
+            g.setColor(isEnabled() ? new Color(255, 255, 255, 220) : color("#ECECF1"));
             g.fillRoundRect(0, 0, getWidth(), getHeight(), 22, 22);
             g.setColor(new Color(255, 255, 255, 150));
             g.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 22, 22);
@@ -874,7 +1349,13 @@ public final class ManagerUiApplication {
                 int column
         ) {
             if (column == 2) {
-                return statusBadge(value == null ? "" : value.toString(), isSelected);
+                return runBadge(value == null ? "" : value.toString(), isSelected);
+            }
+            if (column == 3) {
+                int modelRow = table.convertRowIndexToModel(row);
+                ServerRegistration registration = tableModel.row(modelRow);
+                HealthStatus health = healthStatuses.getOrDefault(healthKey(registration), HealthStatus.notChecked());
+                return healthBadge(health, isSelected);
             }
             JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, false, row, column);
             label.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 12));
@@ -882,14 +1363,11 @@ public final class ManagerUiApplication {
             label.setBackground(isSelected ? INDIGO_LIGHT : Color.WHITE);
             if (column == 0) {
                 label.setFont(label.getFont().deriveFont(Font.BOLD));
-            } else if (column == 3) {
-                label.setForeground(MUTED);
-                label.setFont(label.getFont().deriveFont(Font.PLAIN, 12f));
             }
             return label;
         }
 
-        private Component statusBadge(String status, boolean selected) {
+        private Component runBadge(String status, boolean selected) {
             JLabel label = new JLabel(status, SwingConstants.CENTER) {
                 @Override
                 protected void paintComponent(Graphics graphics) {
@@ -913,6 +1391,50 @@ public final class ManagerUiApplication {
             label.setFont(label.getFont().deriveFont(Font.BOLD, 12f));
             label.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
             return label;
+        }
+
+        private Component healthBadge(HealthStatus health, boolean selected) {
+            JLabel label = new JLabel(health.label(), SwingConstants.CENTER) {
+                @Override
+                protected void paintComponent(Graphics graphics) {
+                    Graphics2D g = (Graphics2D) graphics.create();
+                    g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g.setColor(selected ? INDIGO_LIGHT : Color.WHITE);
+                    g.fillRect(0, 0, getWidth(), getHeight());
+                    g.setColor(healthBackground(health.severity()));
+                    FontMetrics metrics = g.getFontMetrics(getFont());
+                    int width = Math.min(getWidth() - 8, Math.max(92, metrics.stringWidth(health.label()) + 24));
+                    int x = (getWidth() - width) / 2;
+                    int y = (getHeight() - 24) / 2;
+                    g.fillRoundRect(x, y, width, 24, 16, 16);
+                    g.dispose();
+                    super.paintComponent(graphics);
+                }
+            };
+            label.setOpaque(false);
+            label.setForeground(healthForeground(health.severity()));
+            label.setFont(label.getFont().deriveFont(Font.BOLD, 12f));
+            label.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
+            label.setToolTipText(health.hasDetails() ? "Click to show diagnostic details." : health.label());
+            return label;
+        }
+
+        private Color healthBackground(HealthSeverity severity) {
+            return switch (severity) {
+                case OK -> color("#EAF7E4");
+                case WARNING -> YELLOW_LIGHT;
+                case ERROR -> ROSE_LIGHT;
+                case STOPPED, NEUTRAL -> color("#F0F0F4");
+            };
+        }
+
+        private Color healthForeground(HealthSeverity severity) {
+            return switch (severity) {
+                case OK -> GREEN;
+                case WARNING -> color("#B36B00");
+                case ERROR -> ROSE;
+                case STOPPED, NEUTRAL -> MUTED;
+            };
         }
     }
 }
