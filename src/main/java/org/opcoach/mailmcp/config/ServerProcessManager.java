@@ -35,6 +35,10 @@ public final class ServerProcessManager {
     }
 
     public long start(ServerRegistration registration, String transientPassword) {
+        return start(registration, transientPassword, "");
+    }
+
+    public long start(ServerRegistration registration, String transientPassword, String transientVaultPassword) {
         Optional<ProcessHandle> existing = runningProcess(registration);
         if (existing.isPresent()) {
             return existing.get().pid();
@@ -62,6 +66,9 @@ public final class ServerProcessManager {
             if (transientPassword != null && !transientPassword.isBlank()) {
                 builder.environment().put("MAIL_MCP_PASSWORD", transientPassword);
             }
+            if (transientVaultPassword != null && !transientVaultPassword.isBlank()) {
+                builder.environment().put(EncryptedVaultSecretStore.VAULT_PASSWORD_STDIN_ENV, "1");
+            }
 
             Files.writeString(
                     registration.logFile(),
@@ -72,6 +79,11 @@ public final class ServerProcessManager {
                             : java.nio.file.StandardOpenOption.CREATE
             );
             Process process = builder.start();
+            if (transientVaultPassword != null && !transientVaultPassword.isBlank()) {
+                try (var input = process.getOutputStream()) {
+                    input.write((transientVaultPassword + System.lineSeparator()).getBytes(StandardCharsets.UTF_8));
+                }
+            }
             Files.writeString(registration.pidFile(), Long.toString(process.pid()), StandardCharsets.US_ASCII);
             Thread.sleep(1000);
             if (!process.isAlive()) {

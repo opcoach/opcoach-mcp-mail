@@ -42,7 +42,7 @@ git clone https://github.com/opcoach/opcoach-mcp-mail.git
 cd opcoach-mcp-mail
 mvnw.cmd clean verify
 mvnw.cmd -DskipTests package
-java -jar target\opcoach-mcp-mail.jar manager
+java -jar target\opcoach-mcp-mail.jar web-manager
 ```
 
 On macOS or Linux:
@@ -52,16 +52,50 @@ git clone https://github.com/opcoach/opcoach-mcp-mail.git
 cd opcoach-mcp-mail
 ./mvnw clean verify
 ./mvnw -DskipTests package
-bin/manager
+bin/web-manager
 ```
 
 The standard build is non-interactive and uses only fake mail servers for tests.
 
-## Manager
+## Web Manager
+
+The web manager is the recommended local workflow. It starts a browser UI on `127.0.0.1` with a temporary token in the URL. It lets you create mailbox profiles, edit IMAP/SMTP settings, start or stop each local MCP server, copy the MCP URL, and safely export or import profile settings.
+
+Start it on macOS or Linux:
+
+```bash
+bin/web-manager
+```
+
+Start it on Windows after the build:
+
+```cmd
+java -jar target\opcoach-mcp-mail.jar web-manager
+```
+
+The printed URL looks like:
+
+```text
+http://127.0.0.1:18100/?token=temporary-token
+```
+
+Keep this URL local. Do not publish it on a public domain. It is intended for the current machine, or for a private SSH tunnel to a server you control.
+
+In the web manager, use `Save and start` when a profile is ready, then `Copy MCP URL` to configure the AI client:
+
+```text
+http://127.0.0.1:8095/mcp
+```
+
+Import/export is intentionally non-secret. Exported files contain profile names, local MCP ports, IMAP/SMTP hosts, security modes, usernames, sender identity, Reply-To, Sent folder, and Trash folder. They never contain mailbox passwords, vault passwords, bearer tokens, or stored local credentials. During import, profiles that already exist locally are unchecked by default; new profiles are checked by default. Imported profiles still require entering the mailbox password locally before use.
+
+## Desktop Manager
+
+The Swing desktop manager is kept temporarily while the web manager becomes the main UI.
 
 ![OPCoach MCP Mail manager overview](docs/images/manager-overview.png)
 
-The manager is the recommended local workflow. It lets you create mailbox profiles, edit IMAP/SMTP settings, start or stop each local MCP server, and copy the MCP URL to paste into Codex or another MCP client.
+The desktop manager lets you create mailbox profiles, edit IMAP/SMTP settings, start or stop each local MCP server, and copy the MCP URL to paste into Codex or another MCP client.
 
 The left panel lists registered profiles with their local URL and running status. The right panel edits the selected profile: incoming mail, outgoing mail, identity, optional Reply-To address, local host, and local port. Use `Save and start` when the profile is ready, then `Copy URL` to configure the AI client.
 When Reply-To is empty, sent emails do not include a `Reply-To` header.
@@ -96,7 +130,7 @@ Do not configure Codex with the jar in this local workflow. The manager starts t
 
 ## Multiple Mailboxes
 
-Create one profile per mailbox in the manager. Each profile can use a different local port:
+Create one profile per mailbox in the web manager or desktop manager. Each profile can use a different local port:
 
 ```text
 Mailbox 1 -> http://127.0.0.1:8095/mcp
@@ -125,7 +159,7 @@ Passwords are not written to configuration files. On macOS, they are stored in t
 
 ## Headless Linux Server
 
-Do not expose a public setup URL such as `mcp-mail.example.com` for entering mailbox passwords. On a headless server, keep the setup UI bound to `127.0.0.1` and reach it through an SSH tunnel.
+Do not expose a public setup URL such as `mcp-mail.example.com` for entering mailbox passwords. On a headless server, keep the web manager bound to `127.0.0.1` and reach it through an SSH tunnel.
 
 From your workstation, open a tunnel to the server:
 
@@ -133,24 +167,16 @@ From your workstation, open a tunnel to the server:
 ssh -L 18100:127.0.0.1:18100 user@contabo-server
 ```
 
-In that SSH session, build the jar and start the temporary setup UI on the tunneled port:
+In that SSH session, build the jar and start the web manager on the tunneled port:
 
 ```bash
 cd $HOME/git/opcoach-mcp-mail
 ./mvnw -DskipTests package
 
-PROFILE=olivier
-MCP_PORT=8096
-CONFIG=$HOME/.opcoach-mcp-mail/profiles/$PROFILE.properties
-RUN_DIR=$HOME/.opcoach-mcp-mail/run/$PROFILE
-
-mkdir -p "$(dirname "$CONFIG")" "$RUN_DIR"
-
-MAIL_MCP_CONFIG="$CONFIG" \
-bin/setup-ui --profile "$PROFILE" --port 18100
+bin/web-manager --port 18100 --no-open
 ```
 
-Then open this URL on your workstation:
+Then open the printed URL on your workstation:
 
 ```text
 http://127.0.0.1:18100/?token=the-token-printed-by-the-command
@@ -164,13 +190,7 @@ On Linux, the form includes a `Vault password` field. This password protects the
 
 The vault stores mailbox passwords encrypted with AES-GCM. The encryption key is derived from the vault password with PBKDF2-HMAC-SHA256. The vault file is restricted to the local user when the filesystem supports POSIX permissions.
 
-After saving the form, start the local MCP server:
-
-```bash
-MAIL_MCP_CONFIG="$CONFIG" \
-MAIL_MCP_RUN_DIR="$RUN_DIR" \
-bin/start-server --profile "$PROFILE" --host 127.0.0.1 --port "$MCP_PORT"
-```
+After saving a profile, use `Save and start` in the web manager. The generated MCP URL remains local to the server, for example `http://127.0.0.1:8096/mcp`.
 
 If the encrypted vault exists, `bin/start-server` asks for the vault password and sends it to Java through standard input at startup. It is not put on the command line.
 
@@ -187,12 +207,19 @@ bin/start-all
 Main local workflow:
 
 ```bash
+bin/web-manager
+```
+
+Temporary desktop workflow:
+
+```bash
 bin/manager
 ```
 
 Manual helpers:
 
 ```bash
+bin/web-manager --port 18100
 bin/setup-ui --profile default --port 18100
 bin/manager
 bin/start-server --profile default --port 8095

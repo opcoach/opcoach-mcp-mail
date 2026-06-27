@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+JAR="$REPO_DIR/target/opcoach-mcp-mail.jar"
+
+source "$SCRIPT_DIR/java-runtime"
+
+PORT="${MAIL_MCP_WEB_MANAGER_PORT:-18100}"
+BUILD_IF_MISSING=1
+
+usage() {
+  cat <<'USAGE'
+Usage: bin/web-manager [--port PORT] [--no-build] [--no-open]
+
+Starts the MCP Mail Local Manager web UI on 127.0.0.1.
+
+Options:
+  --port PORT  Local manager port. Defaults to MAIL_MCP_WEB_MANAGER_PORT or 18100.
+  --no-build   Fail if target/opcoach-mcp-mail.jar does not exist.
+  --no-open    Print the URL without asking Java to open the browser.
+  -h, --help   Show this help.
+USAGE
+}
+
+ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --port)
+      [[ $# -ge 2 ]] || { echo "Missing value for --port" >&2; exit 2; }
+      PORT="$2"
+      shift 2
+      ;;
+    --no-build)
+      BUILD_IF_MISSING=0
+      shift
+      ;;
+    --no-open)
+      ARGS+=(--no-open)
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [[ ! "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then
+  echo "Invalid web manager port: $PORT" >&2
+  exit 2
+fi
+
+if [[ ! -f "$JAR" ]]; then
+  if [[ "$BUILD_IF_MISSING" -eq 0 ]]; then
+    echo "Missing jar: $JAR" >&2
+    echo "Run ./mvnw -DskipTests package first." >&2
+    exit 1
+  fi
+  mail_mcp_select_java
+  echo "Using Java: $MAIL_MCP_JAVA"
+  echo "Building $JAR ..."
+  (cd "$REPO_DIR" && mail_mcp_with_java_env ./mvnw -DskipTests package)
+fi
+
+mail_mcp_select_java
+exec "$MAIL_MCP_JAVA" -cp "$JAR" org.opcoach.mailmcp.config.WebManagerApplication --port "$PORT" "${ARGS[@]}"

@@ -3,6 +3,7 @@ package org.opcoach.mailmcp;
 import org.opcoach.mailmcp.config.ConfigurationException;
 import org.opcoach.mailmcp.config.ManagerUiApplication;
 import org.opcoach.mailmcp.config.TerminalSetupApplication;
+import org.opcoach.mailmcp.config.WebManagerApplication;
 import org.opcoach.mailmcp.mcp.McpRuntime;
 import org.opcoach.mailmcp.security.SafeErrorMessage;
 import org.slf4j.Logger;
@@ -43,6 +44,10 @@ public final class MailMcpApplication {
                     ManagerUiApplication.main(new String[0]);
                     return 0;
                 }
+                if (options.command() == Command.WEB_MANAGER) {
+                    WebManagerApplication.run(options.port());
+                    return 0;
+                }
                 McpRuntime runtime = McpRuntime.create(options);
                 runtime.start();
                 return 0;
@@ -64,6 +69,7 @@ public final class MailMcpApplication {
     public enum Command {
         SERVER,
         MANAGER,
+        WEB_MANAGER,
         CONFIG_SETUP,
         CONFIG_SET_PASSWORD
     }
@@ -84,6 +90,7 @@ public final class MailMcpApplication {
     ) {
 
         private static final int DEFAULT_HTTP_PORT = 8095;
+        private static final int DEFAULT_WEB_MANAGER_PORT = 18100;
         private static final String DEFAULT_HTTP_HOST = "127.0.0.1";
         private static final String DEFAULT_PROFILE = "default";
 
@@ -95,6 +102,7 @@ public final class MailMcpApplication {
             int port = DEFAULT_HTTP_PORT;
             String token = null;
             boolean help = false;
+            boolean portSet = false;
 
             for (int index = 0; index < args.length; index++) {
                 String arg = args[index];
@@ -104,9 +112,13 @@ public final class MailMcpApplication {
                     case "--http" -> mode = TransportMode.HTTP;
                     case "--profile" -> profile = requireValue(args, ++index, "--profile");
                     case "--host" -> host = requireValue(args, ++index, "--host");
-                    case "--port" -> port = parsePort(requireValue(args, ++index, "--port"));
+                    case "--port" -> {
+                        port = parsePort(requireValue(args, ++index, "--port"));
+                        portSet = true;
+                    }
                     case "--token" -> token = requireValue(args, ++index, "--token");
                     case "manager" -> command = Command.MANAGER;
+                    case "web-manager" -> command = Command.WEB_MANAGER;
                     case "config" -> {
                         String subCommand = requireValue(args, ++index, "config");
                         command = switch (subCommand) {
@@ -117,6 +129,10 @@ public final class MailMcpApplication {
                     }
                     default -> throw new IllegalArgumentException("Unknown argument: " + arg + " among " + Arrays.toString(args));
                 }
+            }
+
+            if (command == Command.WEB_MANAGER && !portSet) {
+                port = DEFAULT_WEB_MANAGER_PORT;
             }
 
             return new CliOptions(command, mode, profile, host, port, token, help);
@@ -130,6 +146,7 @@ public final class MailMcpApplication {
                       java -jar target/opcoach-mcp-mail.jar --stdio [--profile default]
                       java -jar target/opcoach-mcp-mail.jar --http [--host 127.0.0.1] [--port 8095] [--token token]
                       java -jar target/opcoach-mcp-mail.jar manager
+                      java -jar target/opcoach-mcp-mail.jar web-manager [--port 18100]
                       java -jar target/opcoach-mcp-mail.jar config setup [--profile default]
                       java -jar target/opcoach-mcp-mail.jar config set-password [--profile default]
 
