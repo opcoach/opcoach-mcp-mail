@@ -119,10 +119,6 @@ public final class WebManagerApplication {
                 handleDeletePost(exchange);
                 return;
             }
-            if ("POST".equals(method) && "/check".equals(path)) {
-                handleCheckPost(exchange);
-                return;
-            }
             if ("GET".equals(method) && "/check/details".equals(path)) {
                 send(exchange, 200, "text/html; charset=utf-8", checkDetailsPage(query));
                 return;
@@ -229,11 +225,7 @@ public final class WebManagerApplication {
             html.append("<td><span class=\"badge ").append(running ? "running" : "stopped").append("\">")
                     .append(running ? "running" : "stopped").append("</span></td>");
             html.append("<td><div class=\"mail-check\">")
-                    .append(healthBadge(health))
-                    .append("<form method=\"post\" action=\"").append(action("/check")).append("\" class=\"inline-action\" onclick=\"event.stopPropagation()\">")
-                    .append("<input type=\"hidden\" name=\"profile\" value=\"").append(escape(registration.profile())).append("\">")
-                    .append("<button class=\"mini-button\" type=\"submit\">Check</button>")
-                    .append("</form>");
+                    .append(healthBadge(health));
             if (health.hasDetails()) {
                 html.append("<a class=\"details-link\" onclick=\"event.stopPropagation()\" href=\"")
                         .append(link("/check/details", Map.of("profile", registration.profile())))
@@ -515,14 +507,6 @@ public final class WebManagerApplication {
         healthStatuses.remove(healthKey(registration));
         registry.delete(registration);
         redirect(exchange, "/", Map.of("mode", "new", "status", "Deleted " + registration.profile() + "." + secretWarning));
-    }
-
-    private void handleCheckPost(HttpExchange exchange) throws IOException {
-        Map<String, String> values = postForm(exchange);
-        ServerRegistration registration = requiredRegistration(values);
-        HealthStatus health = checkHealth(registration);
-        healthStatuses.put(healthKey(registration), health);
-        redirect(exchange, "/", Map.of("profile", registration.profile(), "status", "Mail check completed for " + registration.profile() + ": " + health.label() + "."));
     }
 
     private String checkDetailsPage(Map<String, String> query) {
@@ -1169,7 +1153,6 @@ public final class WebManagerApplication {
                     .health-error { color:var(--rose); background:#F9DDE9; }
                     .health-neutral { color:var(--muted); background:#F0F0F4; }
                     .mail-check { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-                    .mini-button { border:1px solid #ECEAF7; border-radius:999px; padding:5px 10px; color:var(--indigo); background:white; font-weight:700; cursor:pointer; }
                     .details-link { font-size:12px; }
                     .view-column { width:48px; text-align:center; }
                     .eye-button { display:inline-flex; width:30px; height:30px; align-items:center; justify-content:center; border:1px solid #ECEAF7; border-radius:999px; background:white; font-size:15px; }
