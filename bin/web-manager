@@ -9,6 +9,7 @@ source "$SCRIPT_DIR/java-runtime"
 
 PORT="${MAIL_MCP_WEB_MANAGER_PORT:-18100}"
 BUILD_IF_MISSING=1
+NO_OPEN=0
 
 usage() {
   cat <<'USAGE'
@@ -24,7 +25,6 @@ Options:
 USAGE
 }
 
-ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --port)
@@ -37,7 +37,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --no-open)
-      ARGS+=(--no-open)
+      NO_OPEN=1
       shift
       ;;
     -h|--help)
@@ -70,4 +70,7 @@ if [[ ! -f "$JAR" ]]; then
 fi
 
 mail_mcp_select_java
-exec "$MAIL_MCP_JAVA" -cp "$JAR" org.opcoach.mailmcp.config.WebManagerApplication --port "$PORT" "${ARGS[@]}"
+if [[ "$NO_OPEN" -eq 1 ]]; then
+  exec "$MAIL_MCP_JAVA" -cp "$JAR" org.opcoach.mailmcp.config.WebManagerApplication --port "$PORT" --no-open
+fi
+exec "$MAIL_MCP_JAVA" -cp "$JAR" org.opcoach.mailmcp.config.WebManagerApplication --port "$PORT"

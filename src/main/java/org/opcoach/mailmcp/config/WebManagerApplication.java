@@ -3,35 +3,61 @@ package org.opcoach.mailmcp.config;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.opcoach.mailmcp.config.ProfileTransfer.ProfileSnapshot;
+import org.opcoach.mailmcp.mail.JakartaImapClient;
+import org.opcoach.mailmcp.mail.MailboxInfo;
 import org.opcoach.mailmcp.security.SafeErrorMessage;
 
 import java.awt.Desktop;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class WebManagerApplication {
 
     private static final int DEFAULT_PORT = 18100;
     private static final String LOCAL_HOST = "127.0.0.1";
+    private static final Duration HEALTH_TIMEOUT = Duration.ofSeconds(2);
 
     private final ServerRegistry registry = ServerRegistry.defaultRegistry();
     private final ServerProcessManager processManager = ServerProcessManager.currentApplication();
+    private final SecretStore secretStore = LocalSecretStore.system();
     private final ProfileTransfer transfer = new ProfileTransfer();
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(HEALTH_TIMEOUT)
+            .build();
+    private final ExecutorService healthExecutor = Executors.newFixedThreadPool(2, runnable -> {
+        Thread thread = new Thread(runnable, "opcoach-mcp-mail-web-health");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private final Map<String, HealthStatus> healthStatuses = new ConcurrentHashMap<>();
+    private final Set<String> healthChecksInFlight = ConcurrentHashMap.newKeySet();
     private final String token = newToken();
 
     private WebManagerApplication() {
@@ -50,7 +76,10 @@ public final class WebManagerApplication {
         HttpServer server = HttpServer.create(new InetSocketAddress(LOCAL_HOST, port), 0);
         server.createContext("/", this::handle);
         server.start();
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> server.stop(0), "opcoach-mcp-mail-web-manager-stop"));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            healthExecutor.shutdownNow();
+            server.stop(0);
+        }, "opcoach-mcp-mail-web-manager-stop"));
         int actualPort = server.getAddress().getPort();
         String url = "http://" + LOCAL_HOST + ":" + actualPort + "/?token=" + token;
         System.out.println("MCP Mail Local Manager started on " + url);
@@ -90,6 +119,14 @@ public final class WebManagerApplication {
                 handleDeletePost(exchange);
                 return;
             }
+            if ("POST".equals(method) && "/check".equals(path)) {
+                handleCheckPost(exchange);
+                return;
+            }
+            if ("GET".equals(method) && "/check/details".equals(path)) {
+                send(exchange, 200, "text/html; charset=utf-8", checkDetailsPage(query));
+                return;
+            }
             if ("GET".equals(method) && "/export".equals(path)) {
                 send(exchange, 200, "text/html; charset=utf-8", exportPage(query));
                 return;
@@ -120,6 +157,10 @@ public final class WebManagerApplication {
 
     private String mainPage(Map<String, String> query) {
         List<ServerRegistration> registrations = registry.list();
+        queueInitialHealthChecks(registrations);
+        String sort = query.getOrDefault("sort", "profile");
+        String direction = query.getOrDefault("dir", "asc");
+        List<ServerRegistration> sortedRegistrations = sortedRegistrations(registrations, sort, direction);
         String selectedName = selectedProfileName(query, registrations);
         ProfileForm selected = "new".equals(query.get("mode"))
                 ? ProfileForm.defaults("default", firstFreePort(8095))
@@ -134,7 +175,7 @@ public final class WebManagerApplication {
         body.append("<section class=\"panel servers\">");
         body.append("<div class=\"panel-head\"><div><h2>Registered servers</h2><p>Local MCP URLs and runtime status</p></div>");
         body.append("<a class=\"button ghost\" href=\"").append(link("/", Map.of("mode", "new"))).append("\">New</a></div>");
-        body.append(serverTable(registrations, selected.profile()));
+        body.append(serverTable(sortedRegistrations, selected.profile(), sort, direction));
         body.append("<div class=\"row-actions\">");
         body.append(actionButton("/start", "Start", selected.profile(), !selected.registered() || selected.running(), "good", ""));
         body.append(actionButton("/stop", "Stop", selected.profile(), !selected.registered() || !selected.running(), "danger", ""));
@@ -155,49 +196,211 @@ public final class WebManagerApplication {
         body.append(profileForm(selected));
         body.append("</section>");
         body.append("</main>");
+        body.append(summaryDialog(query));
+        body.append(autoRefreshScript(registrations, selected.profile(), sort, direction));
         body.append(pageEnd());
         return body.toString();
     }
 
-    private String serverTable(List<ServerRegistration> registrations, String selectedProfile) {
+    private String serverTable(List<ServerRegistration> registrations, String selectedProfile, String sort, String direction) {
         if (registrations.isEmpty()) {
             return "<div class=\"empty\">No profile registered yet.</div>";
         }
         StringBuilder html = new StringBuilder();
-        html.append("<table><thead><tr><th>Profile</th><th>URL</th><th>Status</th></tr></thead><tbody>");
+        html.append("<table><thead><tr><th>")
+                .append(sortHeader("Profile", "profile", sort, direction))
+                .append("</th><th>")
+                .append(sortHeader("URL", "url", sort, direction))
+                .append("</th><th>Status</th><th>Mail check</th><th class=\"view-column\">View</th></tr></thead><tbody>");
         for (ServerRegistration registration : registrations) {
             boolean selected = registration.profile().equals(selectedProfile);
             boolean running = processManager.isRunning(registration);
-            html.append("<tr class=\"").append(selected ? "selected" : "").append("\">");
-            html.append("<td><a href=\"").append(link("/", Map.of("profile", registration.profile()))).append("\">")
+            HealthStatus health = healthStatuses.getOrDefault(healthKey(registration), HealthStatus.notChecked());
+            String rowLink = link("/", Map.of("profile", registration.profile(), "sort", sort, "dir", direction));
+            html.append("<tr class=\"").append(selected ? "selected" : "").append("\" onclick=\"location.href='")
+                    .append(js(rowLink))
+                    .append("'\" tabindex=\"0\" onkeydown=\"if(event.key==='Enter'){location.href='")
+                    .append(js(rowLink))
+                    .append("'}\">");
+            html.append("<td><a onclick=\"event.stopPropagation()\" href=\"").append(rowLink).append("\">")
                     .append(escape(registration.profile())).append("</a></td>");
-            html.append("<td><button class=\"link-button\" type=\"button\" onclick=\"copyText('")
+            html.append("<td><button class=\"link-button\" type=\"button\" onclick=\"event.stopPropagation();copyText('")
                     .append(js(registration.url())).append("')\">").append(escape(registration.url())).append("</button></td>");
             html.append("<td><span class=\"badge ").append(running ? "running" : "stopped").append("\">")
                     .append(running ? "running" : "stopped").append("</span></td>");
+            html.append("<td><div class=\"mail-check\">")
+                    .append(healthBadge(health))
+                    .append("<form method=\"post\" action=\"").append(action("/check")).append("\" class=\"inline-action\" onclick=\"event.stopPropagation()\">")
+                    .append("<input type=\"hidden\" name=\"profile\" value=\"").append(escape(registration.profile())).append("\">")
+                    .append("<button class=\"mini-button\" type=\"submit\">Check</button>")
+                    .append("</form>");
+            if (health.hasDetails()) {
+                html.append("<a class=\"details-link\" onclick=\"event.stopPropagation()\" href=\"")
+                        .append(link("/check/details", Map.of("profile", registration.profile())))
+                        .append("\">Details</a>");
+            }
+            html.append("</div></td>");
+            html.append("<td class=\"view-column\"><a class=\"eye-button\" onclick=\"event.stopPropagation()\" href=\"")
+                    .append(link("/", Map.of("profile", registration.profile(), "summary", registration.profile(), "sort", sort, "dir", direction)))
+                    .append("\" title=\"View full settings\">&#128065;</a></td>");
             html.append("</tr>");
         }
         html.append("</tbody></table>");
         return html.toString();
     }
 
+    private List<ServerRegistration> sortedRegistrations(List<ServerRegistration> registrations, String sort, String direction) {
+        Comparator<ServerRegistration> comparator = switch (sort) {
+            case "url" -> Comparator.comparing(ServerRegistration::url, String.CASE_INSENSITIVE_ORDER);
+            case "profile" -> Comparator.comparing(ServerRegistration::profile, String.CASE_INSENSITIVE_ORDER);
+            default -> Comparator.comparing(ServerRegistration::profile, String.CASE_INSENSITIVE_ORDER);
+        };
+        if ("desc".equals(direction)) {
+            comparator = comparator.reversed();
+        }
+        return registrations.stream().sorted(comparator).toList();
+    }
+
+    private String sortHeader(String label, String field, String sort, String direction) {
+        boolean active = field.equals(sort);
+        String nextDirection = active && "asc".equals(direction) ? "desc" : "asc";
+        String marker = active ? ("asc".equals(direction) ? " ↑" : " ↓") : "";
+        return "<a class=\"sort-link\" href=\"" + link("/", Map.of("sort", field, "dir", nextDirection)) + "\">"
+                + escape(label) + marker + "</a>";
+    }
+
+    private String autoRefreshScript(List<ServerRegistration> registrations, String selectedProfile, String sort, String direction) {
+        boolean checking = registrations.stream()
+                .map(registration -> healthStatuses.get(healthKey(registration)))
+                .anyMatch(status -> status != null && status.isChecking());
+        if (!checking) {
+            return "";
+        }
+        String refreshUrl = link("/", Map.of("profile", selectedProfile, "sort", sort, "dir", direction));
+        return "<script>setTimeout(() => { window.location.href = '" + js(refreshUrl) + "'; }, 1600);</script>";
+    }
+
+    private void queueInitialHealthChecks(List<ServerRegistration> registrations) {
+        for (ServerRegistration registration : registrations) {
+            String key = healthKey(registration);
+            if (!healthStatuses.containsKey(key)) {
+                queueHealthCheck(registration, false);
+            }
+        }
+    }
+
+    private void queueHealthCheck(ServerRegistration registration, boolean force) {
+        String key = healthKey(registration);
+        if (!force && healthStatuses.containsKey(key)) {
+            return;
+        }
+        if (!healthChecksInFlight.add(key)) {
+            return;
+        }
+        healthStatuses.put(key, HealthStatus.checking());
+        healthExecutor.execute(() -> {
+            HealthStatus status;
+            try {
+                status = checkHealth(registration);
+            } catch (RuntimeException exception) {
+                status = HealthStatus.error(errorLabel(exception), stackTrace(exception), resolutionFor(exception));
+            } finally {
+                healthChecksInFlight.remove(key);
+            }
+            healthStatuses.put(key, status);
+        });
+    }
+
+    private String summaryDialog(Map<String, String> query) {
+        String profile = query.get("summary");
+        if (profile == null || profile.isBlank()) {
+            return "";
+        }
+        Optional<ServerRegistration> registration = findRegistration(profile);
+        if (registration.isEmpty()) {
+            return "";
+        }
+        StringBuilder html = new StringBuilder();
+        html.append("<div class=\"modal-backdrop\"><section class=\"modal\"><div class=\"panel-head\"><div><h2>Server summary</h2><p>")
+                .append(escape(registration.get().profile()))
+                .append("</p></div><a class=\"button ghost\" href=\"")
+                .append(link("/", Map.of("profile", query.getOrDefault("profile", registration.get().profile()),
+                        "sort", query.getOrDefault("sort", "profile"),
+                        "dir", query.getOrDefault("dir", "asc"))))
+                .append("\">Close</a></div>");
+        html.append(summaryTable(registration.get()));
+        html.append("</section></div>");
+        return html.toString();
+    }
+
+    private String summaryTable(ServerRegistration registration) {
+        StringBuilder html = new StringBuilder();
+        html.append("<div class=\"summary-grid\">");
+        html.append(summaryRow("Profile", registration.profile()));
+        html.append(summaryRow("MCP URL", registration.url()));
+        html.append(summaryRow("Run status", processManager.isRunning(registration) ? "running" : "stopped"));
+        html.append(summaryRow("Config file", registration.configFile().toString()));
+        if (Files.exists(registration.configFile())) {
+            try {
+                MailConfiguration configuration = new ConfigurationLoader(registration.configFile()).load(registration.profile());
+                html.append(summaryRow("IMAP", configuration.imap().host() + ":" + configuration.imap().port() + " · " + configuration.imap().security()));
+                html.append(summaryRow("SMTP", configuration.smtp().host() + ":" + configuration.smtp().port() + " · " + configuration.smtp().security()));
+                html.append(summaryRow("Username", configuration.username()));
+                html.append(summaryRow("Sender", configuration.fromName().isBlank()
+                        ? configuration.fromAddress()
+                        : configuration.fromName() + " <" + configuration.fromAddress() + ">"));
+                html.append(summaryRow("Reply-To", configuration.replyToAddress().isBlank() ? "(none)" : configuration.replyToAddress()));
+                html.append(summaryRow("Sent folder", configuration.sentMailbox()));
+                html.append(summaryRow("Trash folder", configuration.trashMailbox()));
+                html.append(summaryRow("Mail check", healthStatuses.getOrDefault(healthKey(registration), HealthStatus.notChecked()).label()));
+            } catch (ConfigurationException exception) {
+                html.append(summaryRow("Configuration error", SafeErrorMessage.clean(exception.getMessage())));
+            }
+        } else {
+            html.append(summaryRow("Configuration", "Missing"));
+        }
+        html.append("</div>");
+        return html.toString();
+    }
+
+    private static String summaryRow(String label, String value) {
+        return "<div class=\"summary-label\">" + escape(label) + "</div><div class=\"summary-value\">" + escape(value) + "</div>";
+    }
+
     private String profileForm(ProfileForm profile) {
         StringBuilder html = new StringBuilder();
         html.append("<form method=\"post\" action=\"").append(action("/profile")).append("\" autocomplete=\"off\">");
         html.append("<input type=\"hidden\" name=\"originalProfile\" value=\"").append(escape(profile.originalProfile())).append("\">");
-        html.append("<div class=\"form-grid\">");
-        html.append(sectionTitle("Server"));
+        html.append("""
+                <div class="config-tabs" role="tablist">
+                  <button type="button" class="tab-button active" data-tab="server">Server</button>
+                  <button type="button" class="tab-button" data-tab="incoming">Incoming mail</button>
+                  <button type="button" class="tab-button" data-tab="outgoing">Outgoing mail</button>
+                  <button type="button" class="tab-button" data-tab="identity">Identity</button>
+                </div>
+                """);
+        html.append("<div class=\"config-section active\" data-panel=\"server\">");
+        html.append("<h3>Server</h3>");
         html.append(input("Profile", "profile", profile.profile(), "Short name used by Codex, OptimumAI, and logs.", true));
         html.append(input("Local MCP port", "mcpPort", Integer.toString(profile.mcpPort()), "Usually 8095, 8096, 8097...", true));
-        html.append(sectionTitle("Incoming mail"));
+        html.append("</div>");
+
+        html.append("<div class=\"config-section\" data-panel=\"incoming\">");
+        html.append("<h3>Incoming mail</h3>");
         html.append(input("IMAP host", "imapHost", profile.imapHost(), "Example: imap.example.com", true));
         html.append(input("IMAP port", "imapPort", Integer.toString(profile.imapPort()), "993 for SSL/TLS.", true));
         html.append(select("IMAP security", "imapSecurity", profile.imapSecurity()));
-        html.append(sectionTitle("Outgoing mail"));
+        html.append("</div>");
+
+        html.append("<div class=\"config-section\" data-panel=\"outgoing\">");
+        html.append("<h3>Outgoing mail</h3>");
         html.append(input("SMTP host", "smtpHost", profile.smtpHost(), "Example: smtp.example.com", true));
         html.append(input("SMTP port", "smtpPort", Integer.toString(profile.smtpPort()), "465 for SSL/TLS, 587 for STARTTLS.", true));
         html.append(select("SMTP security", "smtpSecurity", profile.smtpSecurity()));
-        html.append(sectionTitle("Identity"));
+        html.append("</div>");
+
+        html.append("<div class=\"config-section\" data-panel=\"identity\">");
+        html.append("<h3>Identity</h3>");
         html.append(input("Email username", "username", profile.username(), "", true));
         html.append(input("Sender address", "fromAddress", profile.fromAddress(), "", true));
         html.append(input("Sender name", "fromName", profile.fromName(), "", false));
@@ -224,6 +427,7 @@ public final class WebManagerApplication {
         String action = values.getOrDefault("action", "save");
         if ("start".equals(action)) {
             processManager.start(result.registration(), result.transientPassword(), result.transientVaultPassword());
+            queueHealthCheck(result.registration(), true);
             redirect(exchange, "/", Map.of("profile", result.registration().profile(), "status", "Saved and started " + result.registration().profile() + "."));
             return;
         }
@@ -257,6 +461,7 @@ public final class WebManagerApplication {
         );
         new ConfigurationWriter(registration.configFile()).write(draft);
         registry.write(registration);
+        healthStatuses.put(healthKey(registration), HealthStatus.notChecked());
 
         char[] password = values.getOrDefault("password", "").toCharArray();
         char[] vaultPassword = values.getOrDefault("vaultPassword", "").toCharArray();
@@ -282,6 +487,7 @@ public final class WebManagerApplication {
         Map<String, String> values = postForm(exchange);
         ServerRegistration registration = requiredRegistration(values);
         processManager.start(registration);
+        queueHealthCheck(registration, true);
         redirect(exchange, "/", Map.of("profile", registration.profile(), "status", "Started " + registration.profile() + "."));
     }
 
@@ -289,6 +495,7 @@ public final class WebManagerApplication {
         Map<String, String> values = postForm(exchange);
         ServerRegistration registration = requiredRegistration(values);
         processManager.stop(registration);
+        healthStatuses.put(healthKey(registration), HealthStatus.stopped());
         redirect(exchange, "/", Map.of("profile", registration.profile(), "status", "Stopped " + registration.profile() + "."));
     }
 
@@ -305,8 +512,43 @@ public final class WebManagerApplication {
         } catch (ConfigurationException exception) {
             secretWarning = " Stored password was not removed: " + SafeErrorMessage.clean(exception.getMessage());
         }
+        healthStatuses.remove(healthKey(registration));
         registry.delete(registration);
         redirect(exchange, "/", Map.of("mode", "new", "status", "Deleted " + registration.profile() + "." + secretWarning));
+    }
+
+    private void handleCheckPost(HttpExchange exchange) throws IOException {
+        Map<String, String> values = postForm(exchange);
+        ServerRegistration registration = requiredRegistration(values);
+        HealthStatus health = checkHealth(registration);
+        healthStatuses.put(healthKey(registration), health);
+        redirect(exchange, "/", Map.of("profile", registration.profile(), "status", "Mail check completed for " + registration.profile() + ": " + health.label() + "."));
+    }
+
+    private String checkDetailsPage(Map<String, String> query) {
+        ServerRegistration registration = findRegistration(query.getOrDefault("profile", ""))
+                .orElseThrow(() -> new ConfigurationException("Unknown profile: " + query.getOrDefault("profile", "")));
+        HealthStatus health = healthStatuses.getOrDefault(healthKey(registration), HealthStatus.notChecked());
+        StringBuilder html = new StringBuilder();
+        html.append(pageStart("Mail check details"));
+        html.append(hero());
+        html.append("<main class=\"single panel\"><div class=\"panel-head\"><div><h2>Mail check details</h2><p>")
+                .append(escape(registration.profile()))
+                .append(" · ")
+                .append(escape(registration.url()))
+                .append("</p></div></div>");
+        html.append("<div class=\"mail-check-detail\">")
+                .append(healthBadge(health))
+                .append("</div>");
+        html.append("<textarea readonly spellcheck=\"false\">")
+                .append(escape(health.diagnosticText(registration)))
+                .append("</textarea>");
+        html.append("<div class=\"form-actions\"><button class=\"button ghost\" type=\"button\" onclick=\"copyText(document.querySelector('textarea').value)\">Copy details</button>");
+        html.append("<a class=\"button ghost\" href=\"")
+                .append(link("/", Map.of("profile", registration.profile())))
+                .append("\">Back</a></div>");
+        html.append("</main>").append(pageEnd());
+        return html.toString();
     }
 
     private String exportPage(Map<String, String> query) {
@@ -554,6 +796,191 @@ public final class WebManagerApplication {
         }
     }
 
+    private HealthStatus checkHealth(ServerRegistration registration) {
+        boolean running = processManager.isRunning(registration);
+        if (running && !httpHealthOk(registration)) {
+            return HealthStatus.warning(
+                    "HTTP unavailable",
+                    "GET " + healthUrl(registration) + " did not return a 2xx response within " + HEALTH_TIMEOUT.toSeconds() + " seconds.",
+                    "Check that the local MCP process is still running and that no other process is bound to this port."
+            );
+        }
+        if (!Files.exists(registration.configFile())) {
+            return HealthStatus.warning(
+                    "Missing config",
+                    "Configuration file not found: " + registration.configFile(),
+                    "Save the profile again from the web manager."
+            );
+        }
+        MailConfiguration configuration = new ConfigurationLoader(registration.configFile()).load(registration.profile());
+        String password;
+        try {
+            password = secretStore.readPassword(configuration.profile()).orElse("");
+        } catch (ConfigurationException exception) {
+            return HealthStatus.warning("Secret locked", stackTrace(exception), "Unlock the local secret store or save the profile with the vault password.");
+        }
+        if (password.isBlank()) {
+            return HealthStatus.warning(
+                    running ? "MCP ok, secret locked" : "Secret missing",
+                    "No password is available for profile " + configuration.profile() + ".",
+                    "Enter the mailbox password in the web manager, then save the profile again."
+            );
+        }
+        List<MailboxInfo> mailboxes;
+        try {
+            mailboxes = new JakartaImapClient(configuration, password).listMailboxes(false);
+        } catch (RuntimeException exception) {
+            return HealthStatus.error(errorLabel(exception), stackTrace(exception), resolutionFor(exception));
+        }
+        MailboxInfo inbox = findMailbox(mailboxes, "INBOX");
+        if (inbox == null) {
+            return HealthStatus.warning(
+                    "Missing INBOX",
+                    "The IMAP connection succeeded, but no folder named INBOX was returned.\n\nAvailable folders:\n" + mailboxList(mailboxes),
+                    "Check the mailbox provider folder naming and IMAP namespace."
+            );
+        }
+        List<String> missing = new ArrayList<>();
+        if (findMailbox(mailboxes, configuration.sentMailbox()) == null) {
+            missing.add(configuration.sentMailbox());
+        }
+        if (findMailbox(mailboxes, configuration.trashMailbox()) == null) {
+            missing.add(configuration.trashMailbox());
+        }
+        if (!missing.isEmpty()) {
+            String missingLabel = missing.size() == 1 ? missing.getFirst() : missing.getFirst() + " +" + (missing.size() - 1);
+            return HealthStatus.warning(
+                    "Missing " + missingLabel,
+                    "Missing configured folder(s): " + String.join(", ", missing) + "\n\nAvailable folders:\n" + mailboxList(mailboxes),
+                    "Open the mailbox folder list and update the Sent/Trash folder names in the profile configuration."
+            );
+        }
+        return HealthStatus.ok("INBOX " + inbox.messageCount());
+    }
+
+    private boolean httpHealthOk(ServerRegistration registration) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(healthUrl(registration)))
+                    .timeout(HEALTH_TIMEOUT)
+                    .GET()
+                    .build();
+            HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+            return response.statusCode() >= 200 && response.statusCode() < 300;
+        } catch (IOException exception) {
+            return false;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
+    }
+
+    private static String healthUrl(ServerRegistration registration) {
+        return "http://" + registration.host() + ":" + registration.port() + "/health";
+    }
+
+    private static MailboxInfo findMailbox(List<MailboxInfo> mailboxes, String fullName) {
+        for (MailboxInfo mailbox : mailboxes) {
+            if (mailbox.fullName().equalsIgnoreCase(fullName)) {
+                return mailbox;
+            }
+        }
+        return null;
+    }
+
+    private static String mailboxList(List<MailboxInfo> mailboxes) {
+        if (mailboxes.isEmpty()) {
+            return "(none)";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (MailboxInfo mailbox : mailboxes) {
+            if (!builder.isEmpty()) {
+                builder.append('\n');
+            }
+            builder.append("- ")
+                    .append(mailbox.fullName())
+                    .append(" (")
+                    .append(mailbox.messageCount())
+                    .append(")");
+        }
+        return builder.toString();
+    }
+
+    private static String errorLabel(Throwable throwable) {
+        String text = throwableText(throwable);
+        if (containsAny(text, "auth", "login", "credential", "password", "invalid credentials")) {
+            return "Error: Authentication";
+        }
+        if (containsAny(text, "timeout", "timed out", "connection", "unknown host", "network", "refused")) {
+            return "Error: Network";
+        }
+        if (containsAny(text, "ssl", "tls", "certificate", "handshake")) {
+            return "Error: TLS";
+        }
+        if (containsAny(text, "configuration", "missing", "invalid")) {
+            return "Error: Configuration";
+        }
+        return "Error: IMAP";
+    }
+
+    private static String resolutionFor(Throwable throwable) {
+        String text = throwableText(throwable);
+        if (containsAny(text, "auth", "login", "credential", "password", "invalid credentials")) {
+            return "Check the email username and app password. If the provider requires app passwords, generate a new one and save it again in the web manager.";
+        }
+        if (containsAny(text, "timeout", "timed out", "connection", "unknown host", "network", "refused")) {
+            return "Check the IMAP host, port, network access, firewall, and whether the provider allows IMAP connections from this machine.";
+        }
+        if (containsAny(text, "ssl", "tls", "certificate", "handshake")) {
+            return "Check the selected security mode, port, and provider TLS certificate requirements.";
+        }
+        if (containsAny(text, "configuration", "missing", "invalid")) {
+            return "Review the profile configuration and save it again.";
+        }
+        return "Review the complete exception below, then check the IMAP provider settings and mailbox folder names.";
+    }
+
+    private static boolean containsAny(String text, String... needles) {
+        for (String needle : needles) {
+            if (text.contains(needle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String throwableText(Throwable throwable) {
+        StringBuilder builder = new StringBuilder();
+        Throwable current = throwable;
+        while (current != null) {
+            builder.append(current.getClass().getName()).append(' ');
+            if (current.getMessage() != null) {
+                builder.append(current.getMessage()).append(' ');
+            }
+            current = current.getCause();
+        }
+        return builder.toString().toLowerCase(Locale.ROOT);
+    }
+
+    private static String stackTrace(Throwable throwable) {
+        StringWriter writer = new StringWriter();
+        throwable.printStackTrace(new PrintWriter(writer));
+        return writer.toString();
+    }
+
+    private static String blankToDefault(String value, String defaultValue) {
+        return value == null || value.isBlank() ? defaultValue : value;
+    }
+
+    private static String healthKey(ServerRegistration registration) {
+        return registration.profile() + "@" + registration.host() + ":" + registration.port();
+    }
+
+    private String healthBadge(HealthStatus health) {
+        return "<span class=\"badge health " + health.severity().cssClass + "\">" + escape(health.label()) + "</span>";
+    }
+
     private String actionButton(String path, String label, String profile, boolean disabled, String style, String confirmScript) {
         return """
                 <form method="post" action="%s" class="inline-action" onsubmit="%s">
@@ -714,29 +1141,42 @@ public final class WebManagerApplication {
                   <style>
                     :root { --indigo:#4B3F72; --soft:#6C63A6; --blue:#48A5AE; --rose:#E75294; --green:#58B025; --surface:#F8F8FC; --text:#25252A; --muted:#6F6F71; --border:#E7E4F3; }
                     * { box-sizing: border-box; }
-                    body { margin:0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:var(--text); background:var(--surface); }
-                    .hero { min-height: 190px; padding: 34px 44px; color:white; background: radial-gradient(circle at 78%% 90%%, rgba(250,189,67,.28), transparent 18%%), radial-gradient(circle at 98%% 0%%, rgba(255,255,255,.20), transparent 24%%), linear-gradient(110deg, var(--indigo), var(--soft)); display:flex; align-items:center; justify-content:space-between; gap:24px; }
-                    .hero h1 { margin:0; font-size:42px; line-height:1; letter-spacing:0; }
-                    .hero p { margin:16px 0 0; color:#F2F1FA; font-size:18px; }
-                    .hero .eyebrow { font-weight:800; color:#E6E4F3; margin-bottom:14px; }
+                    body { margin:0; font:14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:var(--text); background:var(--surface); }
+                    .hero { min-height: 150px; padding: 26px 36px; color:white; background: radial-gradient(circle at 78%% 90%%, rgba(250,189,67,.28), transparent 18%%), radial-gradient(circle at 98%% 0%%, rgba(255,255,255,.20), transparent 24%%), linear-gradient(110deg, var(--indigo), var(--soft)); display:flex; align-items:center; justify-content:space-between; gap:24px; }
+                    .hero h1 { margin:0; font-size:34px; line-height:1; letter-spacing:0; }
+                    .hero p { margin:12px 0 0; color:#F2F1FA; font-size:15px; }
+                    .hero .eyebrow { font-weight:700; color:#E6E4F3; margin-bottom:10px; }
                     .layout { display:grid; grid-template-columns: minmax(420px, 3fr) minmax(360px, 2fr); gap:24px; padding:28px; }
                     .single { max-width: 1040px; margin:28px auto; }
-                    .panel { background:white; border:1px solid var(--border); border-radius:20px; box-shadow: 8px 14px 0 rgba(75,63,114,.08); padding:24px; }
-                    .panel-head { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:20px; }
-                    .panel h2 { margin:0; font-size:28px; }
-                    .panel p { margin:4px 0 0; color:var(--muted); }
+                    .panel { background:white; border:1px solid var(--border); border-radius:16px; box-shadow: 6px 10px 0 rgba(75,63,114,.07); padding:20px; }
+                    .panel-head { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:16px; }
+                    .panel h2 { margin:0; font-size:22px; font-weight:700; }
+                    .panel p { margin:4px 0 0; color:var(--muted); font-size:13px; }
                     table { width:100%%; border-collapse:collapse; }
-                    th { text-align:left; color:#535057; border-bottom:1px solid var(--border); padding:10px 12px; font-size:13px; }
-                    td { border-bottom:1px solid #F0EEF8; padding:14px 12px; vertical-align:middle; }
+                    th { text-align:left; color:#535057; border-bottom:1px solid var(--border); padding:8px 10px; font-size:12px; font-weight:700; }
+                    td { border-bottom:1px solid #F0EEF8; padding:10px; vertical-align:middle; }
+                    tbody tr { cursor:pointer; }
+                    tbody tr:hover { background:#FAF9FF; }
                     tr.selected { background:#F2F0FA; }
-                    a { color:var(--indigo); font-weight:800; text-decoration:none; }
+                    a { color:var(--indigo); font-weight:700; text-decoration:none; }
+                    .sort-link { color:#535057; }
                     .link-button { border:0; background:transparent; color:var(--soft); cursor:pointer; font:inherit; padding:0; }
-                    .badge { border-radius:999px; padding:6px 13px; font-weight:900; font-size:12px; display:inline-flex; }
+                    .badge { border-radius:999px; padding:5px 11px; font-weight:700; font-size:12px; display:inline-flex; }
                     .running { color:var(--green); background:#EAF7E4; }
                     .stopped { color:var(--rose); background:#F9DDE9; }
+                    .health-ok { color:var(--green); background:#EAF7E4; }
+                    .health-warn { color:#B36B00; background:#FFF1CF; }
+                    .health-error { color:var(--rose); background:#F9DDE9; }
+                    .health-neutral { color:var(--muted); background:#F0F0F4; }
+                    .mail-check { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+                    .mini-button { border:1px solid #ECEAF7; border-radius:999px; padding:5px 10px; color:var(--indigo); background:white; font-weight:700; cursor:pointer; }
+                    .details-link { font-size:12px; }
+                    .view-column { width:48px; text-align:center; }
+                    .eye-button { display:inline-flex; width:30px; height:30px; align-items:center; justify-content:center; border:1px solid #ECEAF7; border-radius:999px; background:white; font-size:15px; }
+                    .mail-check-detail { margin: 0 0 14px; }
                     .row-actions, .form-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; align-items:center; margin-top:22px; }
                     .inline-action { display:inline; }
-                    .button { border:0; border-radius:14px; padding:12px 18px; font-weight:900; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; min-height:44px; }
+                    .button { border:0; border-radius:12px; padding:10px 16px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; min-height:40px; }
                     .button:disabled { cursor:not-allowed; background:#ECECF1 !important; color:#A2A2AA !important; }
                     .primary { color:white; background:linear-gradient(110deg, var(--soft), #8F88C7); }
                     .strong { color:white; background:linear-gradient(110deg, var(--indigo), var(--rose)); }
@@ -744,14 +1184,18 @@ public final class WebManagerApplication {
                     .danger { color:white; background:linear-gradient(110deg, var(--rose), #E975A7); }
                     .warning { color:white; background:linear-gradient(110deg, #B36B00, #FABD43); }
                     .ghost { color:var(--indigo); background:white; border:1px solid #ECEAF7; }
-                    .form-grid { display:grid; grid-template-columns: 1fr; gap:12px; }
-                    .form-grid h3 { margin:18px 0 0; color:var(--indigo); text-transform:uppercase; font-size:13px; letter-spacing:0; }
-                    label { display:grid; grid-template-columns: 180px minmax(0, 1fr); gap:12px 18px; align-items:center; font-weight:800; color:#4B4B4D; }
-                    input, select, textarea { width:100%%; border:1px solid #CFCDE1; border-radius:12px; padding:11px 13px; font:inherit; color:var(--text); background:white; }
+                    .config-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+                    .tab-button { border:1px solid #DEDCEF; border-radius:999px; background:white; color:var(--indigo); padding:8px 12px; font-weight:700; cursor:pointer; }
+                    .tab-button.active { background:linear-gradient(110deg, var(--indigo), var(--soft)); color:white; border-color:transparent; }
+                    .config-section { display:none; background:#F4F3F8; border:1px solid #E4E1F0; border-radius:14px; padding:16px; }
+                    .config-section.active { display:grid; grid-template-columns:1fr; gap:12px; }
+                    .config-section h3 { margin:0 0 4px; color:var(--indigo); text-transform:uppercase; font-size:12px; font-weight:700; letter-spacing:0; }
+                    label { display:grid; grid-template-columns: 160px minmax(0, 1fr); gap:10px 14px; align-items:center; font-weight:600; color:#4B4B4D; }
+                    input, select, textarea { width:100%%; border:1px solid #CFCDE1; border-radius:10px; padding:9px 11px; font:inherit; color:var(--text); background:white; }
                     textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; min-height:280px; }
-                    small { color:#939394; font-weight:600; }
+                    small { color:#939394; font-weight:500; }
                     label small { grid-column:2; margin-top:-8px; }
-                    .notice { border-radius:12px; padding:12px 14px; margin:12px 0; font-weight:800; }
+                    .notice { border-radius:12px; padding:10px 12px; margin:12px 0; font-weight:700; }
                     .notice.ok { background:#EAF7E4; color:var(--green); }
                     .notice.error { background:#F9DDE9; color:var(--rose); }
                     .notice.warn { background:#FFF1CF; color:#B36B00; }
@@ -761,6 +1205,13 @@ public final class WebManagerApplication {
                     .check small { grid-column:2; margin:0; display:block; }
                     .import-card { border:1px solid var(--border); border-radius:16px; padding:16px; margin:14px 0; }
                     .file-loader { display:block; margin-bottom:12px; }
+                    .modal-backdrop { position:fixed; inset:0; background:rgba(37,37,42,.34); display:flex; align-items:flex-start; justify-content:center; padding:8vh 20px 20px; z-index:10; }
+                    .modal { width:min(760px, 100%%); max-height:84vh; overflow:auto; background:white; border:1px solid var(--border); border-radius:18px; box-shadow:0 24px 80px rgba(37,37,42,.24); padding:22px; }
+                    .summary-grid { display:grid; grid-template-columns: 160px minmax(0,1fr); gap:0; border:1px solid #E6E4F3; border-radius:14px; overflow:hidden; }
+                    .summary-label, .summary-value { padding:10px 12px; border-bottom:1px solid #EDEBF7; }
+                    .summary-label { background:#F4F3F8; color:#4B4B4D; font-weight:700; }
+                    .summary-value { background:white; overflow-wrap:anywhere; }
+                    .summary-label:nth-last-child(2), .summary-value:last-child { border-bottom:0; }
                     @media (max-width: 980px) { .layout { grid-template-columns:1fr; padding:16px; } .hero { padding:28px 20px; display:block; } label { grid-template-columns:1fr; } label small { grid-column:1; } }
                   </style>
                 </head>
@@ -772,6 +1223,18 @@ public final class WebManagerApplication {
                     if (!file) return;
                     file.text().then(text => document.getElementById('payload').value = text);
                   }
+                  document.addEventListener('DOMContentLoaded', () => {
+                    const preferredTab = localStorage.getItem('mcpMailManagerTab') || 'server';
+                    const activate = (name) => {
+                      document.querySelectorAll('.tab-button').forEach(button => button.classList.toggle('active', button.dataset.tab === name));
+                      document.querySelectorAll('.config-section').forEach(panel => panel.classList.toggle('active', panel.dataset.panel === name));
+                      localStorage.setItem('mcpMailManagerTab', name);
+                    };
+                    document.querySelectorAll('.tab-button').forEach(button => button.addEventListener('click', () => activate(button.dataset.tab)));
+                    if (document.querySelector('[data-panel="' + preferredTab + '"]')) {
+                      activate(preferredTab);
+                    }
+                  });
                 </script>
                 """.formatted(escape(title));
     }
@@ -820,6 +1283,74 @@ public final class WebManagerApplication {
                 .replace("'", "\\'")
                 .replace("\n", "\\n")
                 .replace("\r", "");
+    }
+
+    private record HealthStatus(String label, HealthSeverity severity, String detail, String suggestion) {
+
+        static HealthStatus notChecked() {
+            return new HealthStatus("not checked", HealthSeverity.NEUTRAL, "", "");
+        }
+
+        static HealthStatus checking() {
+            return new HealthStatus("checking...", HealthSeverity.NEUTRAL, "", "");
+        }
+
+        static HealthStatus stopped() {
+            return new HealthStatus("not running", HealthSeverity.NEUTRAL, "", "");
+        }
+
+        static HealthStatus ok(String label) {
+            return new HealthStatus(label, HealthSeverity.OK, "", "");
+        }
+
+        static HealthStatus warning(String label, String detail, String suggestion) {
+            return new HealthStatus(label, HealthSeverity.WARNING, detail, suggestion);
+        }
+
+        static HealthStatus error(String label, String detail, String suggestion) {
+            return new HealthStatus(label, HealthSeverity.ERROR, detail, suggestion);
+        }
+
+        boolean hasDetails() {
+            return (detail != null && !detail.isBlank()) || (suggestion != null && !suggestion.isBlank());
+        }
+
+        boolean isChecking() {
+            return "checking...".equals(label);
+        }
+
+        String diagnosticText(ServerRegistration registration) {
+            return """
+                    Profile: %s
+                    URL: %s
+                    Status: %s
+
+                    Suggested resolution:
+                    %s
+
+                    Details:
+                    %s
+                    """.formatted(
+                    registration.profile(),
+                    registration.url(),
+                    label,
+                    blankToDefault(suggestion, "No automatic suggestion is available."),
+                    blankToDefault(detail, "No diagnostic details are available.")
+            );
+        }
+    }
+
+    private enum HealthSeverity {
+        OK("health-ok"),
+        WARNING("health-warn"),
+        ERROR("health-error"),
+        NEUTRAL("health-neutral");
+
+        private final String cssClass;
+
+        HealthSeverity(String cssClass) {
+            this.cssClass = cssClass;
+        }
     }
 
     private record SaveResult(ServerRegistration registration, String transientPassword, String transientVaultPassword) {

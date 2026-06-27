@@ -87,6 +87,8 @@ In the web manager, use `Save and start` when a profile is ready, then `Copy MCP
 http://127.0.0.1:8095/mcp
 ```
 
+The `Mail check` column tests each profile in the background when the web manager opens, and can also be refreshed manually with `Check`. It checks the local MCP health endpoint when the server is running, verifies IMAP access, reads the `INBOX` message count, and confirms that the configured Sent and Trash folders exist.
+
 Import/export is intentionally non-secret. Exported files contain profile names, local MCP ports, IMAP/SMTP hosts, security modes, usernames, sender identity, Reply-To, Sent folder, and Trash folder. They never contain mailbox passwords, vault passwords, bearer tokens, or stored local credentials. During import, profiles that already exist locally are unchecked by default; new profiles are checked by default. Imported profiles still require entering the mailbox password locally before use.
 
 ## Desktop Manager
