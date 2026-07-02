@@ -25,7 +25,7 @@ public final class SecretResolver {
     }
 
     public ResolvedSecret resolve(MailConfiguration configuration) {
-        String profileSpecificEnv = profileSpecificEnv(configuration.profile());
+        String profileSpecificEnv = passwordEnvName(configuration.profile());
         String profilePassword = env.get(profileSpecificEnv);
         if (profilePassword != null && !profilePassword.isBlank()) {
             LOGGER.warn("Mail password read from {}. Prefer local secret storage where durable storage is supported.", profileSpecificEnv);
@@ -48,7 +48,7 @@ public final class SecretResolver {
                         """.formatted(configuration.profile(), configuration.profile())));
     }
 
-    private static String profileSpecificEnv(String profile) {
+    public static String passwordEnvName(String profile) {
         String normalized = profile.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]+", "_");
         return PASSWORD_ENV + "_" + normalized;
     }

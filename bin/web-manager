@@ -10,18 +10,21 @@ source "$SCRIPT_DIR/java-runtime"
 PORT="${MAIL_MCP_WEB_MANAGER_PORT:-18100}"
 BUILD_IF_MISSING=1
 NO_OPEN=0
+START_REGISTERED=0
 
 usage() {
   cat <<'USAGE'
-Usage: bin/web-manager [--port PORT] [--no-build] [--no-open]
+Usage: bin/web-manager [--port PORT] [--no-build] [--no-open] [--start-registered]
 
 Starts the MCP Mail Local Manager web UI on 127.0.0.1.
+The web manager also hosts local MCP endpoints in the same Java process.
 
 Options:
-  --port PORT  Local manager port. Defaults to MAIL_MCP_WEB_MANAGER_PORT or 18100.
-  --no-build   Fail if target/opcoach-mcp-mail.jar does not exist.
-  --no-open    Print the URL without asking Java to open the browser.
-  -h, --help   Show this help.
+  --port PORT         Local manager port. Defaults to MAIL_MCP_WEB_MANAGER_PORT or 18100.
+  --no-build          Fail if target/opcoach-mcp-mail.jar does not exist.
+  --no-open           Print the URL without asking Java to open the browser.
+  --start-registered  Start every registered MCP endpoint in this process.
+  -h, --help          Show this help.
 USAGE
 }
 
@@ -38,6 +41,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-open)
       NO_OPEN=1
+      shift
+      ;;
+    --start-registered)
+      START_REGISTERED=1
       shift
       ;;
     -h|--help)
@@ -70,7 +77,28 @@ if [[ ! -f "$JAR" ]]; then
 fi
 
 mail_mcp_select_java
-if [[ "$NO_OPEN" -eq 1 ]]; then
-  exec "$MAIL_MCP_JAVA" -cp "$JAR" org.opcoach.mailmcp.config.WebManagerApplication --port "$PORT" --no-open
+JAVA_OPTS=(
+  -Xms16m
+  -Xmx192m
+  -Xss512k
+  -XX:+UseSerialGC
+  -XX:ActiveProcessorCount=2
+  -XX:ReservedCodeCacheSize=48m
+)
+EXTRA_JAVA_OPTS=()
+if [[ -n "${MAIL_MCP_JAVA_OPTS:-}" ]]; then
+  EXTRA_JAVA_OPTS=($MAIL_MCP_JAVA_OPTS)
 fi
-exec "$MAIL_MCP_JAVA" -cp "$JAR" org.opcoach.mailmcp.config.WebManagerApplication --port "$PORT"
+ARGS=(-cp "$JAR" org.opcoach.mailmcp.config.WebManagerApplication --port "$PORT")
+if [[ "$NO_OPEN" -eq 1 ]]; then
+  ARGS+=(--no-open)
+fi
+if [[ "$START_REGISTERED" -eq 1 ]]; then
+  ARGS+=(--start-registered)
+fi
+COMMAND=("$MAIL_MCP_JAVA" "${JAVA_OPTS[@]}")
+if (( ${#EXTRA_JAVA_OPTS[@]} > 0 )); then
+  COMMAND+=("${EXTRA_JAVA_OPTS[@]}")
+fi
+COMMAND+=("${ARGS[@]}")
+exec "${COMMAND[@]}"

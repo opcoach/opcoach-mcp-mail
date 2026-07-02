@@ -45,7 +45,7 @@ public final class MailMcpApplication {
                     return 0;
                 }
                 if (options.command() == Command.WEB_MANAGER) {
-                    WebManagerApplication.run(options.port());
+                    WebManagerApplication.run(options.port(), options.openBrowser(), options.startRegistered());
                     return 0;
                 }
                 McpRuntime runtime = McpRuntime.create(options);
@@ -86,6 +86,8 @@ public final class MailMcpApplication {
             String host,
             int port,
             String httpToken,
+            boolean openBrowser,
+            boolean startRegistered,
             boolean showHelp
     ) {
 
@@ -101,6 +103,8 @@ public final class MailMcpApplication {
             String host = DEFAULT_HTTP_HOST;
             int port = DEFAULT_HTTP_PORT;
             String token = null;
+            boolean openBrowser = true;
+            boolean startRegistered = false;
             boolean help = false;
             boolean portSet = false;
 
@@ -110,6 +114,8 @@ public final class MailMcpApplication {
                     case "--help", "-h" -> help = true;
                     case "--stdio" -> mode = TransportMode.STDIO;
                     case "--http" -> mode = TransportMode.HTTP;
+                    case "--no-open" -> openBrowser = false;
+                    case "--start-registered" -> startRegistered = true;
                     case "--profile" -> profile = requireValue(args, ++index, "--profile");
                     case "--host" -> host = requireValue(args, ++index, "--host");
                     case "--port" -> {
@@ -135,7 +141,7 @@ public final class MailMcpApplication {
                 port = DEFAULT_WEB_MANAGER_PORT;
             }
 
-            return new CliOptions(command, mode, profile, host, port, token, help);
+            return new CliOptions(command, mode, profile, host, port, token, openBrowser, startRegistered, help);
         }
 
         static String help() {
@@ -146,7 +152,7 @@ public final class MailMcpApplication {
                       java -jar target/opcoach-mcp-mail.jar --stdio [--profile default]
                       java -jar target/opcoach-mcp-mail.jar --http [--host 127.0.0.1] [--port 8095] [--token token]
                       java -jar target/opcoach-mcp-mail.jar manager
-                      java -jar target/opcoach-mcp-mail.jar web-manager [--port 18100]
+                      java -jar target/opcoach-mcp-mail.jar web-manager [--port 18100] [--no-open] [--start-registered]
                       java -jar target/opcoach-mcp-mail.jar config setup [--profile default]
                       java -jar target/opcoach-mcp-mail.jar config set-password [--profile default]
 

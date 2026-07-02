@@ -59,7 +59,9 @@ The standard build is non-interactive and uses only fake mail servers for tests.
 
 ## Web Manager
 
-The web manager is the recommended local workflow. It starts a browser UI on `127.0.0.1` with a temporary token in the URL. It lets you create mailbox profiles, edit IMAP/SMTP settings, start or stop each local MCP server, copy the MCP URL, and safely export or import profile settings.
+The web manager is the recommended local workflow. It starts a browser UI on `127.0.0.1` with a temporary token in the URL. It lets you create mailbox profiles, edit IMAP/SMTP settings, start or stop each local MCP endpoint, copy the MCP URL, and safely export or import profile settings.
+
+The web manager and all MCP endpoints run in one Java process. Starting several mailbox profiles from the web manager does not create one JVM per mailbox.
 
 Start it on macOS or Linux:
 
@@ -151,7 +153,7 @@ It also registers each local HTTP server under:
 ~/.opcoach-mcp-mail/servers/
 ```
 
-After rebooting the machine, restart every registered server from the manager, or with:
+After rebooting the machine, start the web manager and every registered MCP endpoint in one Java process with:
 
 ```bash
 bin/start-all
@@ -196,13 +198,13 @@ After saving a profile, use `Save and start` in the web manager. The generated M
 
 If the encrypted vault exists, `bin/start-server` asks for the vault password and sends it to Java through standard input at startup. It is not put on the command line.
 
-After rebooting the server, restart every registered profile with:
+After rebooting the server, restart the web manager and every registered profile in one Java process with:
 
 ```bash
 bin/start-all
 ```
 
-`bin/start-all` asks once for the vault password and starts all registered local MCP mail servers.
+`bin/start-all` asks once for the vault password when needed, starts the web manager, and starts all registered local MCP endpoints in that same process.
 
 ## Script Reference
 
@@ -229,9 +231,11 @@ bin/start-all
 bin/stop-server
 ```
 
-`bin/start-server` runs the HTTP server on `127.0.0.1:8095` by default. It writes the PID file and logs under `.run/`, and builds `target/opcoach-mcp-mail.jar` automatically if it is missing.
+`bin/web-manager --start-registered --no-open` starts the web manager and every registered MCP endpoint in one Java process.
 
-`bin/start-all` starts every local HTTP server registered by the manager or by `bin/local-wizard`. Use it after rebooting instead of re-running each mailbox setup.
+`bin/start-server` is kept for direct single-profile HTTP use. It runs one standalone HTTP server on `127.0.0.1:8095` by default. It writes the PID file and logs under `.run/`, and builds `target/opcoach-mcp-mail.jar` automatically if it is missing.
+
+`bin/start-all` is a convenience wrapper around `bin/web-manager --start-registered --no-open`. It stays in the foreground because the single Java process owns both the web manager and the registered MCP endpoints.
 
 ## Advanced Jar Usage
 

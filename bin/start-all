@@ -13,10 +13,11 @@ usage() {
   cat <<'USAGE'
 Usage: bin/start-all [--dry-run] [--no-build]
 
-Starts every local MCP mail server registered by bin/local-wizard.
+Starts the web manager and every registered MCP endpoint in one Java process.
+The process stays in the foreground; stop it to stop the web manager and MCP endpoints.
 
 Options:
-  --dry-run   Print what would be started without starting servers.
+  --dry-run   Print what would be started without starting it.
   --no-build  Fail if target/opcoach-mcp-mail.jar does not exist.
   -h, --help  Show this help.
 USAGE
@@ -44,111 +45,40 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-read_server_file() {
-  local server_file="$1"
-  PROFILE=""
-  CONFIG_FILE=""
-  RUN_DIR=""
-  HOST="127.0.0.1"
-  PORT=""
-
-  local line key value
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    [[ -z "$line" || "$line" == \#* || "$line" != *=* ]] && continue
-    key="${line%%=*}"
-    value="${line#*=}"
-    case "$key" in
-      PROFILE) PROFILE="$value" ;;
-      CONFIG_FILE) CONFIG_FILE="$value" ;;
-      RUN_DIR) RUN_DIR="$value" ;;
-      HOST) HOST="$value" ;;
-      PORT) PORT="$value" ;;
-    esac
-  done < "$server_file"
-}
-
-validate_server() {
-  local server_file="$1"
-  if [[ -z "$PROFILE" || -z "$CONFIG_FILE" || -z "$RUN_DIR" || -z "$HOST" || -z "$PORT" ]]; then
-    echo "Invalid server registry file: $server_file" >&2
-    return 1
-  fi
-  if [[ ! "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then
-    echo "Invalid port in $server_file: $PORT" >&2
-    return 1
-  fi
-  if [[ ! -f "$CONFIG_FILE" ]]; then
-    echo "Missing configuration for profile $PROFILE: $CONFIG_FILE" >&2
-    return 1
-  fi
-}
-
-needs_vault_password() {
-  [[ -f "$VAULT_FILE" \
-    && -z "${MAIL_MCP_PASSWORD:-}" \
-    && -z "${MAIL_MCP_VAULT_PASSWORD:-}" \
-    && -z "${MAIL_MCP_VAULT_PASSWORD_STDIN:-}" ]]
-}
-
 shopt -s nullglob
 SERVER_FILES=("$SERVER_REGISTRY_DIR"/*.env)
 shopt -u nullglob
 
 if (( ${#SERVER_FILES[@]} == 0 )); then
   echo "No registered local MCP mail servers found in $SERVER_REGISTRY_DIR."
-  echo "Run bin/local-wizard once per mailbox to register them."
+  echo "Open bin/web-manager once and save at least one mailbox profile."
   exit 0
 fi
 
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  echo "Would start one web-manager process with ${#SERVER_FILES[@]} registered MCP endpoint(s):"
+  for server_file in "${SERVER_FILES[@]}"; do
+    profile="$(sed -n 's/^PROFILE=//p' "$server_file" | head -n 1)"
+    host="$(sed -n 's/^HOST=//p' "$server_file" | head -n 1)"
+    port="$(sed -n 's/^PORT=//p' "$server_file" | head -n 1)"
+    echo "  ${profile:-unknown} -> http://${host:-127.0.0.1}:${port:-unknown}/mcp"
+  done
+  exit 0
+fi
+
+ARGS=(--no-open --start-registered)
+if [[ "$BUILD_IF_MISSING" -eq 0 ]]; then
+  ARGS+=(--no-build)
+fi
+
 VAULT_PASSWORD_INPUT=""
-USE_VAULT_STDIN=0
-if [[ "$DRY_RUN" -eq 0 ]] && needs_vault_password; then
+if [[ -f "$VAULT_FILE" \
+  && -z "${MAIL_MCP_PASSWORD:-}" \
+  && -z "${MAIL_MCP_VAULT_PASSWORD:-}" \
+  && -z "${MAIL_MCP_VAULT_PASSWORD_STDIN:-}" ]]; then
   read -r -s -p "Vault password: " VAULT_PASSWORD_INPUT
   echo
-  USE_VAULT_STDIN=1
+  export MAIL_MCP_VAULT_PASSWORD="$VAULT_PASSWORD_INPUT"
 fi
 
-FAILURES=0
-for server_file in "${SERVER_FILES[@]}"; do
-  read_server_file "$server_file"
-  if ! validate_server "$server_file"; then
-    FAILURES=$((FAILURES + 1))
-    continue
-  fi
-
-  echo "Starting profile $PROFILE on http://$HOST:$PORT/mcp"
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    continue
-  fi
-
-  ARGS=(--profile "$PROFILE" --host "$HOST" --port "$PORT")
-  if [[ "$BUILD_IF_MISSING" -eq 0 ]]; then
-    ARGS+=(--no-build)
-  fi
-
-  if [[ "$USE_VAULT_STDIN" -eq 1 ]]; then
-    if ! printf '%s\n' "$VAULT_PASSWORD_INPUT" | env \
-      MAIL_MCP_CONFIG="$CONFIG_FILE" \
-      MAIL_MCP_RUN_DIR="$RUN_DIR" \
-      MAIL_MCP_VAULT_FILE="$VAULT_FILE" \
-      MAIL_MCP_VAULT_PASSWORD_STDIN=1 \
-      "$REPO_DIR/bin/start-server" "${ARGS[@]}"; then
-      FAILURES=$((FAILURES + 1))
-    fi
-  else
-    if ! env \
-      MAIL_MCP_CONFIG="$CONFIG_FILE" \
-      MAIL_MCP_RUN_DIR="$RUN_DIR" \
-      MAIL_MCP_VAULT_FILE="$VAULT_FILE" \
-      "$REPO_DIR/bin/start-server" "${ARGS[@]}"; then
-      FAILURES=$((FAILURES + 1))
-    fi
-  fi
-done
-
-VAULT_PASSWORD_INPUT=""
-
-if (( FAILURES > 0 )); then
-  echo "$FAILURES server(s) could not be started." >&2
-  exit 1
-fi
+exec "$REPO_DIR/bin/web-manager" "${ARGS[@]}"

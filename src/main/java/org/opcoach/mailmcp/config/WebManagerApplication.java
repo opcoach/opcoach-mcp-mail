@@ -45,7 +45,7 @@ public final class WebManagerApplication {
     private static final Duration HEALTH_TIMEOUT = Duration.ofSeconds(2);
 
     private final ServerRegistry registry = ServerRegistry.defaultRegistry();
-    private final ServerProcessManager processManager = ServerProcessManager.currentApplication();
+    private final EmbeddedMcpServerManager mcpServerManager = new EmbeddedMcpServerManager();
     private final SecretStore secretStore = LocalSecretStore.system();
     private final ProfileTransfer transfer = new ProfileTransfer();
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -65,18 +65,23 @@ public final class WebManagerApplication {
 
     public static void main(String[] args) throws Exception {
         CliOptions options = CliOptions.parse(args);
-        new WebManagerApplication().start(options.port(), options.openBrowser());
+        new WebManagerApplication().start(options.port(), options.openBrowser(), options.startRegistered());
     }
 
     public static void run(int port) throws IOException, InterruptedException {
-        new WebManagerApplication().start(port, false);
+        new WebManagerApplication().start(port, false, false);
     }
 
-    private void start(int port, boolean openBrowser) throws IOException, InterruptedException {
+    public static void run(int port, boolean openBrowser, boolean startRegistered) throws IOException, InterruptedException {
+        new WebManagerApplication().start(port, openBrowser, startRegistered);
+    }
+
+    private void start(int port, boolean openBrowser, boolean startRegistered) throws IOException, InterruptedException {
         HttpServer server = HttpServer.create(new InetSocketAddress(LOCAL_HOST, port), 0);
         server.createContext("/", this::handle);
         server.start();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            mcpServerManager.close();
             healthExecutor.shutdownNow();
             server.stop(0);
         }, "opcoach-mcp-mail-web-manager-stop"));
@@ -84,10 +89,32 @@ public final class WebManagerApplication {
         String url = "http://" + LOCAL_HOST + ":" + actualPort + "/?token=" + token;
         System.out.println("MCP Mail Local Manager started on " + url);
         System.out.println("It is bound to 127.0.0.1 only. Stop this process to close the UI.");
+        if (startRegistered) {
+            startRegisteredProfiles();
+        }
         if (openBrowser) {
             openBrowser(url);
         }
         new CountDownLatch(1).await();
+    }
+
+    private void startRegisteredProfiles() {
+        int started = 0;
+        int failures = 0;
+        for (ServerRegistration registration : registry.list()) {
+            try {
+                mcpServerManager.start(registration);
+                queueHealthCheck(registration, true);
+                started++;
+            } catch (RuntimeException exception) {
+                failures++;
+                System.err.println("Unable to start profile " + registration.profile() + ": " + SafeErrorMessage.clean(exception.getMessage()));
+            }
+        }
+        System.out.println("Started " + started + " registered MCP endpoint(s) in the web-manager process.");
+        if (failures > 0) {
+            System.err.println(failures + " registered MCP endpoint(s) could not be started. Open the web manager for details.");
+        }
     }
 
     private void handle(HttpExchange exchange) throws IOException {
@@ -210,7 +237,7 @@ public final class WebManagerApplication {
                 .append("</th><th>Status</th><th>Mail check</th><th class=\"view-column\">View</th></tr></thead><tbody>");
         for (ServerRegistration registration : registrations) {
             boolean selected = registration.profile().equals(selectedProfile);
-            boolean running = processManager.isRunning(registration);
+            boolean running = mcpServerManager.isRunning(registration);
             HealthStatus health = healthStatuses.getOrDefault(healthKey(registration), HealthStatus.notChecked());
             String rowLink = link("/", Map.of("profile", registration.profile(), "sort", sort, "dir", direction));
             html.append("<tr class=\"").append(selected ? "selected" : "").append("\" onclick=\"location.href='")
@@ -330,7 +357,7 @@ public final class WebManagerApplication {
         html.append("<div class=\"summary-grid\">");
         html.append(summaryRow("Profile", registration.profile()));
         html.append(summaryRow("MCP URL", registration.url()));
-        html.append(summaryRow("Run status", processManager.isRunning(registration) ? "running" : "stopped"));
+        html.append(summaryRow("Run status", mcpServerManager.isRunning(registration) ? "running" : "stopped"));
         html.append(summaryRow("Config file", registration.configFile().toString()));
         if (Files.exists(registration.configFile())) {
             try {
@@ -418,7 +445,7 @@ public final class WebManagerApplication {
         SaveResult result = saveProfile(values);
         String action = values.getOrDefault("action", "save");
         if ("start".equals(action)) {
-            processManager.start(result.registration(), result.transientPassword(), result.transientVaultPassword());
+            mcpServerManager.start(result.registration(), result.transientPassword(), result.transientVaultPassword());
             queueHealthCheck(result.registration(), true);
             redirect(exchange, "/", Map.of("profile", result.registration().profile(), "status", "Saved and started " + result.registration().profile() + "."));
             return;
@@ -478,7 +505,7 @@ public final class WebManagerApplication {
     private void handleStartPost(HttpExchange exchange) throws IOException {
         Map<String, String> values = postForm(exchange);
         ServerRegistration registration = requiredRegistration(values);
-        processManager.start(registration);
+        mcpServerManager.start(registration);
         queueHealthCheck(registration, true);
         redirect(exchange, "/", Map.of("profile", registration.profile(), "status", "Started " + registration.profile() + "."));
     }
@@ -486,7 +513,7 @@ public final class WebManagerApplication {
     private void handleStopPost(HttpExchange exchange) throws IOException {
         Map<String, String> values = postForm(exchange);
         ServerRegistration registration = requiredRegistration(values);
-        processManager.stop(registration);
+        mcpServerManager.stop(registration);
         healthStatuses.put(healthKey(registration), HealthStatus.stopped());
         redirect(exchange, "/", Map.of("profile", registration.profile(), "status", "Stopped " + registration.profile() + "."));
     }
@@ -494,7 +521,7 @@ public final class WebManagerApplication {
     private void handleDeletePost(HttpExchange exchange) throws IOException {
         Map<String, String> values = postForm(exchange);
         ServerRegistration registration = requiredRegistration(values);
-        processManager.stop(registration);
+        mcpServerManager.stop(registration);
         String secretWarning = "";
         try {
             boolean removed = LocalSecretStore.system().deletePassword(registration.profile());
@@ -726,7 +753,7 @@ public final class WebManagerApplication {
         }
         try {
             MailConfiguration configuration = new ConfigurationLoader(registration.get().configFile()).load(registration.get().profile());
-            return ProfileForm.from(registration.get(), configuration, processManager.isRunning(registration.get()));
+            return ProfileForm.from(registration.get(), configuration, mcpServerManager.isRunning(registration.get()));
         } catch (ConfigurationException exception) {
             return ProfileForm.defaults(profile, registration.get().port());
         }
@@ -755,7 +782,7 @@ public final class WebManagerApplication {
         Optional<ServerRegistration> existingRegistration = findRegistration(registration.profile());
         boolean sameRunningServer = existingRegistration.isPresent()
                 && existingRegistration.get().port() == registration.port()
-                && processManager.isRunning(existingRegistration.get());
+                && mcpServerManager.isRunning(existingRegistration.get());
         if (!sameRunningServer && !isPortFree(registration.port())) {
             throw new ConfigurationException("Port " + registration.port() + " is already in use by another process.");
         }
@@ -781,7 +808,7 @@ public final class WebManagerApplication {
     }
 
     private HealthStatus checkHealth(ServerRegistration registration) {
-        boolean running = processManager.isRunning(registration);
+        boolean running = mcpServerManager.isRunning(registration);
         if (running && !httpHealthOk(registration)) {
             return HealthStatus.warning(
                     "HTTP unavailable",
@@ -1409,16 +1436,18 @@ public final class WebManagerApplication {
         }
     }
 
-    private record CliOptions(int port, boolean openBrowser) {
+    private record CliOptions(int port, boolean openBrowser, boolean startRegistered) {
 
         static CliOptions parse(String[] args) {
             int port = DEFAULT_PORT;
             boolean openBrowser = true;
+            boolean startRegistered = false;
             for (int index = 0; index < args.length; index++) {
                 String arg = args[index];
                 switch (arg) {
                     case "--port" -> port = parsePort(requireValue(args, ++index, "--port"), "web manager port");
                     case "--no-open" -> openBrowser = false;
+                    case "--start-registered" -> startRegistered = true;
                     case "-h", "--help" -> {
                         System.out.println(help());
                         System.exit(0);
@@ -1426,7 +1455,7 @@ public final class WebManagerApplication {
                     default -> throw new IllegalArgumentException("Unknown web manager argument: " + arg);
                 }
             }
-            return new CliOptions(port, openBrowser);
+            return new CliOptions(port, openBrowser, startRegistered);
         }
 
         private static String requireValue(String[] args, int index, String option) {
@@ -1438,9 +1467,10 @@ public final class WebManagerApplication {
 
         private static String help() {
             return """
-                    Usage: web-manager [--port PORT] [--no-open]
+                    Usage: web-manager [--port PORT] [--no-open] [--start-registered]
 
                     Starts the local web manager on 127.0.0.1.
+                    With --start-registered, also starts every registered MCP endpoint in this process.
                     Default port: 18100.
                     """;
         }
