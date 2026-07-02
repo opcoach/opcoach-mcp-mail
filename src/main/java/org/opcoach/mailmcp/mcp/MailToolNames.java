@@ -9,6 +9,8 @@ public final class MailToolNames {
     public static final String SEARCH_MESSAGES = "searchMessages";
     public static final String GET_MESSAGE = "getMessage";
     public static final String GET_ATTACHMENT = "getAttachment";
+    public static final String GET_ATTACHMENT_INFO = "getAttachmentInfo";
+    public static final String SAVE_ATTACHMENT = "saveAttachment";
     public static final String MOVE_MESSAGE = "moveMessage";
     public static final String DELETE_MESSAGE = "deleteMessage";
 
@@ -18,6 +20,8 @@ public final class MailToolNames {
             SEARCH_MESSAGES,
             GET_MESSAGE,
             GET_ATTACHMENT,
+            GET_ATTACHMENT_INFO,
+            SAVE_ATTACHMENT,
             MOVE_MESSAGE,
             DELETE_MESSAGE
     );

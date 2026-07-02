@@ -112,6 +112,34 @@ public final class MailApplicationService implements MailToolService {
     }
 
     @Override
+    public Object getAttachmentInfo(Map<String, Object> arguments) {
+        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", "INBOX"));
+        try {
+            GetAttachmentInfoQuery query = queryParser.getAttachmentInfo(arguments);
+            Object result = Map.of("attachments", imapClient.getAttachmentInfo(query));
+            auditLogger.record(AuditEvent.success(MailToolNames.GET_ATTACHMENT_INFO, query.mailbox(), Long.toString(query.uid()), List.of()));
+            return result;
+        } catch (RuntimeException exception) {
+            auditLogger.record(AuditEvent.failure(MailToolNames.GET_ATTACHMENT_INFO, mailbox));
+            throw exception;
+        }
+    }
+
+    @Override
+    public Object saveAttachment(Map<String, Object> arguments) {
+        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", "INBOX"));
+        try {
+            SaveAttachmentCommand command = queryParser.saveAttachment(arguments);
+            SavedAttachment result = imapClient.saveAttachment(command);
+            auditLogger.record(AuditEvent.success(MailToolNames.SAVE_ATTACHMENT, command.mailbox(), Long.toString(command.uid()), List.of()));
+            return result;
+        } catch (RuntimeException exception) {
+            auditLogger.record(AuditEvent.failure(MailToolNames.SAVE_ATTACHMENT, mailbox));
+            throw exception;
+        }
+    }
+
+    @Override
     public Object moveMessage(Map<String, Object> arguments) {
         String mailbox = String.valueOf(arguments.getOrDefault("mailbox", "INBOX"));
         try {

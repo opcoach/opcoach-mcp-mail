@@ -37,11 +37,13 @@ public final class JakartaImapClient {
     private final MailConfiguration configuration;
     private final String password;
     private final MimeMessageExtractor extractor = new MimeMessageExtractor();
+    private final AttachmentStorage attachmentStorage;
     private Store cachedStore;
 
     public JakartaImapClient(MailConfiguration configuration, String password) {
         this.configuration = configuration;
         this.password = password;
+        this.attachmentStorage = new AttachmentStorage(configuration.profile());
     }
 
     public synchronized List<MailboxInfo> listMailboxes(boolean includeSpecialUse) {
@@ -127,6 +129,45 @@ public final class JakartaImapClient {
         } catch (MessagingException exception) {
             invalidateStore();
             throw new MailOperationException("Unable to retrieve the IMAP attachment: " + exception.getMessage(), exception);
+        }
+    }
+
+    public synchronized List<AttachmentInfo> getAttachmentInfo(GetAttachmentInfoQuery query) {
+        try {
+            Store store = store();
+            Folder folder = open(store, query.mailbox(), Folder.READ_ONLY);
+            try {
+                Message message = messageByUid(folder, query.uid());
+                return extractor.attachmentInfo(message, query.attachmentId());
+            } finally {
+                folder.close(false);
+            }
+        } catch (MessagingException exception) {
+            invalidateStore();
+            throw new MailOperationException("Unable to inspect the IMAP attachments: " + exception.getMessage(), exception);
+        }
+    }
+
+    public synchronized SavedAttachment saveAttachment(SaveAttachmentCommand command) {
+        try {
+            Store store = store();
+            Folder folder = open(store, command.mailbox(), Folder.READ_ONLY);
+            try {
+                Message message = messageByUid(folder, command.uid());
+                return extractor.saveAttachment(
+                        message,
+                        command.attachmentId(),
+                        attachmentStorage,
+                        command.directory(),
+                        command.filename(),
+                        command.maxBytes()
+                );
+            } finally {
+                folder.close(false);
+            }
+        } catch (MessagingException exception) {
+            invalidateStore();
+            throw new MailOperationException("Unable to save the IMAP attachment: " + exception.getMessage(), exception);
         }
     }
 

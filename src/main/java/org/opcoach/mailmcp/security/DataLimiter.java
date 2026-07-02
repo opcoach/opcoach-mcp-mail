@@ -3,6 +3,7 @@ package org.opcoach.mailmcp.security;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
 public final class DataLimiter {
@@ -27,8 +28,13 @@ public final class DataLimiter {
 
     public static byte[] readAtMost(InputStream input, int maxBytes) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream(Math.min(maxBytes, 8192));
+        copyAtMost(input, output, maxBytes);
+        return output.toByteArray();
+    }
+
+    public static long copyAtMost(InputStream input, OutputStream output, int maxBytes) throws IOException {
         byte[] buffer = new byte[8192];
-        int total = 0;
+        long total = 0;
         int read;
         while ((read = input.read(buffer)) != -1) {
             total += read;
@@ -37,6 +43,6 @@ public final class DataLimiter {
             }
             output.write(buffer, 0, read);
         }
-        return output.toByteArray();
+        return total;
     }
 }

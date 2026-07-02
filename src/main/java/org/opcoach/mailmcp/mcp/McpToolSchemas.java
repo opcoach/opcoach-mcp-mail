@@ -76,7 +76,32 @@ public final class McpToolSchemas {
                         entry("mailbox", string("IMAP folder containing the message.", "INBOX")),
                         entry("uid", string("Stable IMAP UID for the message.")),
                         entry("attachmentId", string("Attachment identifier returned by getMessage.")),
-                        entry("maxBytes", integer("Maximum accepted attachment size.", 1, 10 * 1024 * 1024, 5 * 1024 * 1024))
+                        entry("maxBytes", integer("Maximum inline attachment bytes before base64 encoding. Use saveAttachment for larger files.", 1, 75_000, 75_000))
+                ),
+                List.of("uid", "attachmentId")
+        );
+    }
+
+    public static Map<String, Object> getAttachmentInfo() {
+        return object(
+                props(
+                        entry("mailbox", string("IMAP folder containing the message.", "INBOX")),
+                        entry("uid", string("Stable IMAP UID for the message.")),
+                        entry("attachmentId", string("Optional attachment identifier returned by getMessage or getAttachmentInfo. When omitted, all attachments are returned."))
+                ),
+                List.of("uid")
+        );
+    }
+
+    public static Map<String, Object> saveAttachment() {
+        return object(
+                props(
+                        entry("mailbox", string("IMAP folder containing the message.", "INBOX")),
+                        entry("uid", string("Stable IMAP UID for the message.")),
+                        entry("attachmentId", string("Attachment identifier returned by getMessage or getAttachmentInfo.")),
+                        entry("directory", string("Optional relative subdirectory below the local attachment root. Absolute paths and '..' are rejected.")),
+                        entry("filename", string("Optional saved filename. When omitted, the attachment filename is used. Existing files are never overwritten; a numeric suffix is added.")),
+                        entry("maxBytes", integer("Maximum attachment bytes accepted for local saving.", 1, 50 * 1024 * 1024, 5 * 1024 * 1024))
                 ),
                 List.of("uid", "attachmentId")
         );

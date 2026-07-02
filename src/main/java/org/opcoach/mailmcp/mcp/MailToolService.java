@@ -14,6 +14,10 @@ public interface MailToolService {
 
     Object getAttachment(Map<String, Object> arguments);
 
+    Object getAttachmentInfo(Map<String, Object> arguments);
+
+    Object saveAttachment(Map<String, Object> arguments);
+
     Object moveMessage(Map<String, Object> arguments);
 
     Object deleteMessage(Map<String, Object> arguments);

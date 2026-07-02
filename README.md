@@ -290,21 +290,47 @@ Authentication: none for localhost
 - `listMailboxes`: lists the available IMAP folders.
 - `searchMessages`: searches messages with text filters, inclusive received-date range (`since`/`until`), `limit`, and `beforeUid` cursor paging.
 - `getMessage`: reads a specific message by UID.
-- `getAttachment`: explicitly retrieves an attachment by identifier.
+- `getAttachment`: retrieves a small attachment inline as base64. This is intentionally limited to avoid large JSON responses.
+- `getAttachmentInfo`: lists attachment metadata for one message without downloading contents.
+- `saveAttachment`: saves one attachment directly on the MCP server disk without returning its contents in JSON.
 - `moveMessage`: moves a message by UID from one IMAP folder to another.
 - `deleteMessage`: moves a message by UID to the configured trash folder.
 
 Searches return metadata, snippets, mailbox, and UID only. Use `getMessage` to inspect one selected message before calling `moveMessage` or `deleteMessage`.
 To page through a date range safely, call `searchMessages` again with `beforeUid` set to the last UID returned by the previous page.
 Date filters use the IMAP received date. `until` is inclusive for the whole calendar day.
-Attachments are never downloaded automatically.
+Attachments are never downloaded automatically. Use `getAttachmentInfo` first, then `saveAttachment` for selected invoices or documents.
 Deletion is intentionally non-destructive by default: messages are moved to `trash.mailbox`, not permanently expunged.
+
+### Local Attachment Export
+
+`saveAttachment` writes files under a local attachment root and never returns the file contents to the AI client. The default root is:
+
+```text
+~/.opcoach-mcp-mail/attachments/<profile>/
+```
+
+The tool accepts an optional relative `directory` below that root, for example `invoices/2026-01`, and an optional `filename`.
+Absolute paths, Windows drive paths, backslashes, and `..` escapes are rejected. Existing files are not overwritten; a numeric suffix is added automatically.
+
+For server deployments or tests, the root directory can be changed before starting the MCP server:
+
+```bash
+export MAIL_MCP_ATTACHMENT_DIR=/srv/opcoach-mcp-mail/attachments
+```
+
+or with the Java property:
+
+```bash
+java -Dmail.mcp.attachmentDir=/srv/opcoach-mcp-mail/attachments -jar target/opcoach-mcp-mail.jar --http
+```
 
 ## Security
 
-- No destructive action in v1.
+- No permanent destructive action in v1: `deleteMessage` moves messages to the configured trash folder.
 - No unlimited bulk reads.
 - Email bodies and attachment contents are not written to audit logs.
+- Saved attachments stay on the MCP server filesystem under the configured attachment root.
 - An email read by the AI remains untrusted external data.
 - The AI client should request confirmation before any real send, according to its context.
 

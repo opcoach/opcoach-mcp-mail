@@ -17,9 +17,12 @@ import jakarta.mail.util.ByteArrayDataSource;
 import org.junit.jupiter.api.Test;
 import org.opcoach.mailmcp.config.ConnectionSecurity;
 import org.opcoach.mailmcp.config.MailConfiguration;
+import org.opcoach.mailmcp.config.ConfigurationPaths;
 import org.opcoach.mailmcp.config.MailEndpoint;
 import org.opcoach.mailmcp.config.MailLimits;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -38,7 +41,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JakartaImapClientTest {
 
     @Test
-    void searchesReadsAndFetchesAttachmentByUid() throws Exception {
+    void searchesReadsAndFetchesAttachmentByUid(@TempDir Path attachmentsDir) throws Exception {
+        String previousAttachmentDir = System.getProperty(ConfigurationPaths.ATTACHMENT_DIR_PROPERTY);
+        System.setProperty(ConfigurationPaths.ATTACHMENT_DIR_PROPERTY, attachmentsDir.toString());
         ServerSetup imap = new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAP);
         GreenMail greenMail = new GreenMail(imap);
         greenMail.start();
@@ -85,8 +90,40 @@ class JakartaImapClientTest {
 
             assertEquals("program.pdf", attachment.filename());
             assertEquals("fake pdf content", new String(Base64.getDecoder().decode(attachment.contentBase64()), StandardCharsets.UTF_8));
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> infoResult = (Map<String, Object>) service.getAttachmentInfo(Map.of(
+                    "mailbox", "INBOX",
+                    "uid", summary.uid()
+            ));
+            @SuppressWarnings("unchecked")
+            List<AttachmentInfo> attachments = (List<AttachmentInfo>) infoResult.get("attachments");
+            assertEquals(1, attachments.size());
+            assertEquals("program.pdf", attachments.getFirst().filename());
+
+            SavedAttachment saved = (SavedAttachment) service.saveAttachment(Map.of(
+                    "mailbox", "INBOX",
+                    "uid", summary.uid(),
+                    "attachmentId", details.attachments().getFirst().attachmentId(),
+                    "directory", "invoices/2026",
+                    "filename", "invoice.pdf"
+            ));
+            Path savedPath = Path.of(saved.path());
+            assertTrue(savedPath.startsWith(attachmentsDir.resolve("default").toAbsolutePath().normalize()));
+            assertEquals("invoice.pdf", saved.filename());
+            assertEquals("fake pdf content", Files.readString(savedPath, StandardCharsets.UTF_8));
+
+            SavedAttachment savedAgain = (SavedAttachment) service.saveAttachment(Map.of(
+                    "mailbox", "INBOX",
+                    "uid", summary.uid(),
+                    "attachmentId", details.attachments().getFirst().attachmentId(),
+                    "directory", "invoices/2026",
+                    "filename", "invoice.pdf"
+            ));
+            assertEquals("invoice-1.pdf", savedAgain.filename());
         } finally {
             greenMail.stop();
+            restoreAttachmentDir(previousAttachmentDir);
         }
     }
 
@@ -321,6 +358,14 @@ class JakartaImapClientTest {
         message.setContent(mixed);
         message.saveChanges();
         return message;
+    }
+
+    private static void restoreAttachmentDir(String previousAttachmentDir) {
+        if (previousAttachmentDir == null) {
+            System.clearProperty(ConfigurationPaths.ATTACHMENT_DIR_PROPERTY);
+            return;
+        }
+        System.setProperty(ConfigurationPaths.ATTACHMENT_DIR_PROPERTY, previousAttachmentDir);
     }
 
     private static MailConfiguration configuration(int imapPort) {

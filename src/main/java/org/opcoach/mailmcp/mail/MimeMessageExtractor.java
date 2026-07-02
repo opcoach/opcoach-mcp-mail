@@ -8,6 +8,10 @@ import jakarta.mail.Part;
 import org.opcoach.mailmcp.security.DataLimiter;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -37,6 +41,38 @@ final class MimeMessageExtractor {
             return found.content();
         } catch (MessagingException | IOException exception) {
             throw new MailOperationException("Unable to read the attachment: " + exception.getMessage(), exception);
+        }
+    }
+
+    List<AttachmentInfo> attachmentInfo(Part root, String requestedId) {
+        try {
+            List<AttachmentInfo> attachments = new ArrayList<>();
+            collectAttachments(root, "part-1", requestedId, attachments, true);
+            if (requestedId != null && !requestedId.isBlank() && attachments.isEmpty()) {
+                throw new IllegalArgumentException("Attachment not found: " + requestedId);
+            }
+            return List.copyOf(attachments);
+        } catch (MessagingException | IOException exception) {
+            throw new MailOperationException("Unable to inspect the attachments: " + exception.getMessage(), exception);
+        }
+    }
+
+    SavedAttachment saveAttachment(
+            Part root,
+            String requestedId,
+            AttachmentStorage storage,
+            String directory,
+            String filename,
+            int maxBytes
+    ) {
+        try {
+            SavedAttachment found = saveMatchingAttachment(root, "part-1", requestedId, storage, directory, filename, maxBytes, true);
+            if (found == null) {
+                throw new IllegalArgumentException("Attachment not found: " + requestedId);
+            }
+            return found;
+        } catch (MessagingException | IOException exception) {
+            throw new MailOperationException("Unable to save the attachment: " + exception.getMessage(), exception);
         }
     }
 
@@ -102,6 +138,85 @@ final class MimeMessageExtractor {
                 if (found != null) {
                     return found;
                 }
+            }
+        }
+        return null;
+    }
+
+    private void collectAttachments(Part part, String partId, String requestedId, List<AttachmentInfo> attachments, boolean root)
+            throws MessagingException, IOException {
+        if (!root && isAttachment(part)) {
+            if (requestedId == null || requestedId.isBlank() || partId.equals(requestedId)) {
+                attachments.add(info(part, partId));
+            }
+            return;
+        }
+        if (part.isMimeType("multipart/*")) {
+            Multipart multipart = (Multipart) part.getContent();
+            for (int index = 0; index < multipart.getCount(); index++) {
+                BodyPart child = multipart.getBodyPart(index);
+                collectAttachments(child, childId(partId, index + 1, root), requestedId, attachments, false);
+            }
+            return;
+        }
+        if (part.isMimeType("message/rfc822")) {
+            Object content = part.getContent();
+            if (content instanceof Message nested) {
+                collectAttachments(nested, childId(partId, 1, root), requestedId, attachments, false);
+            }
+        }
+    }
+
+    private SavedAttachment saveMatchingAttachment(
+            Part part,
+            String partId,
+            String requestedId,
+            AttachmentStorage storage,
+            String directory,
+            String filename,
+            int maxBytes,
+            boolean root
+    ) throws MessagingException, IOException {
+        if (!root && isAttachment(part)) {
+            if (!partId.equals(requestedId)) {
+                return null;
+            }
+            if (part.getSize() > maxBytes) {
+                throw new IllegalArgumentException("Attachment is too large: " + safeFilename(part));
+            }
+            Path target = storage.target(directory, filename, safeFilename(part));
+            storage.createParentDirectories(target);
+            OutputStream output = Files.newOutputStream(target, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+            try (output) {
+                long size = DataLimiter.copyAtMost(part.getInputStream(), output, maxBytes);
+                storage.restrictOwnerOnly(target);
+                return new SavedAttachment(
+                        partId,
+                        target.getFileName().toString(),
+                        contentType(part),
+                        size,
+                        target.toString()
+                );
+            } catch (RuntimeException | IOException exception) {
+                Files.deleteIfExists(target);
+                throw exception;
+            }
+        }
+        if (part.isMimeType("multipart/*")) {
+            Multipart multipart = (Multipart) part.getContent();
+            for (int index = 0; index < multipart.getCount(); index++) {
+                BodyPart child = multipart.getBodyPart(index);
+                SavedAttachment found = saveMatchingAttachment(child, childId(partId, index + 1, root), requestedId, storage, directory, filename, maxBytes, false);
+                if (found != null) {
+                    return found;
+                }
+            }
+            return null;
+        }
+        if (part.isMimeType("message/rfc822")) {
+            Object content = part.getContent();
+            if (content instanceof Message nested) {
+                return saveMatchingAttachment(nested, childId(partId, 1, root), requestedId, storage, directory, filename, maxBytes, false);
             }
         }
         return null;

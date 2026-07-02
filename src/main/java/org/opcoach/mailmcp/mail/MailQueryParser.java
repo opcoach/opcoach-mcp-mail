@@ -53,6 +53,25 @@ public final class MailQueryParser {
         );
     }
 
+    public GetAttachmentInfoQuery getAttachmentInfo(Map<String, Object> arguments) {
+        return new GetAttachmentInfoQuery(
+                string(arguments, "mailbox", "INBOX"),
+                uid(arguments),
+                string(arguments, "attachmentId", null)
+        );
+    }
+
+    public SaveAttachmentCommand saveAttachment(Map<String, Object> arguments) {
+        return new SaveAttachmentCommand(
+                string(arguments, "mailbox", "INBOX"),
+                uid(arguments),
+                required(arguments, "attachmentId"),
+                string(arguments, "directory", ""),
+                string(arguments, "filename", ""),
+                Math.min(integer(arguments, "maxBytes", limits.maxAttachmentBytes()), limits.maxAttachmentBytes())
+        );
+    }
+
     public MoveMessageCommand moveMessage(Map<String, Object> arguments) {
         return new MoveMessageCommand(
                 string(arguments, "mailbox", "INBOX"),

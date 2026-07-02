@@ -87,6 +87,16 @@ class MailToolRegistryTest {
         }
 
         @Override
+        public Object getAttachmentInfo(Map<String, Object> arguments) {
+            return ok();
+        }
+
+        @Override
+        public Object saveAttachment(Map<String, Object> arguments) {
+            return ok();
+        }
+
+        @Override
         public Object moveMessage(Map<String, Object> arguments) {
             return ok();
         }
