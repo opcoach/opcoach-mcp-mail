@@ -57,6 +57,48 @@ bin/web-manager
 
 The standard build is non-interactive and uses only fake mail servers for tests.
 
+## How To Update
+
+Stop the running server first. In the terminal window where it is running, press `Ctrl+C`. If you cannot find that window, close the terminal window that started the server.
+
+### Windows
+
+Open the project folder in File Explorer. Click in the address bar, type `cmd`, then press Enter. A Command Prompt opens directly in the right folder.
+
+Run:
+
+```cmd
+git pull
+mvnw.cmd -DskipTests package
+java -jar target\opcoach-mcp-mail.jar web-manager
+```
+
+Open the URL printed in the terminal. It looks like:
+
+```text
+http://127.0.0.1:18100/?token=temporary-token
+```
+
+In the web manager, enter the mailbox password again if requested, then click `Save and start`.
+
+On Windows, do not use the `bin\...` commands. They are macOS/Linux scripts.
+
+### macOS Or Linux
+
+Open a terminal in the project folder, then run:
+
+```bash
+git pull
+./mvnw -DskipTests package
+bin/web-manager
+```
+
+For a server that should restart all saved mailbox profiles at once:
+
+```bash
+bin/start-all
+```
+
 ## Web Manager
 
 The web manager is the recommended local workflow. It starts a browser UI on `127.0.0.1` with a temporary token in the URL. It lets you create mailbox profiles, edit IMAP/SMTP settings, start or stop each local MCP endpoint, copy the MCP URL, and safely export or import profile settings.
