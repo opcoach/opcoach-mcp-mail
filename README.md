@@ -83,6 +83,12 @@ In the web manager, enter the mailbox password again if requested, then click `S
 
 On Windows, do not use the `bin\...` commands. They are macOS/Linux scripts.
 
+If the server is already running and you only need to recover the web manager URL, run:
+
+```cmd
+java -jar target\opcoach-mcp-mail.jar web-manager-url
+```
+
 ### macOS Or Linux
 
 Open a terminal in the project folder, then run:
@@ -97,6 +103,12 @@ For a server that should restart all saved mailbox profiles at once:
 
 ```bash
 bin/start-all
+```
+
+If the server is already running and you only need to recover the web manager URL, run:
+
+```bash
+java -jar target/opcoach-mcp-mail.jar web-manager-url
 ```
 
 ## Web Manager
@@ -121,6 +133,26 @@ The printed URL looks like:
 
 ```text
 http://127.0.0.1:18100/?token=temporary-token
+```
+
+If the web manager is already running and the terminal window was closed, print the current URL again with:
+
+On Windows:
+
+```cmd
+java -jar target\opcoach-mcp-mail.jar web-manager-url
+```
+
+On macOS or Linux:
+
+```bash
+java -jar target/opcoach-mcp-mail.jar web-manager-url
+```
+
+The same URL is also saved locally in:
+
+```text
+~/.opcoach-mcp-mail/web-manager.url
 ```
 
 Keep this URL local. Do not publish it on a public domain. It is intended for the current machine, or for a private SSH tunnel to a server you control.
@@ -291,6 +323,12 @@ Direct HTTP mode:
 
 ```bash
 java -jar target/opcoach-mcp-mail.jar --http --port 8095
+```
+
+Print the URL of an already running web manager:
+
+```bash
+java -jar target/opcoach-mcp-mail.jar web-manager-url
 ```
 
 The HTTP server listens on `127.0.0.1` by default. If you listen on another interface, provide a token:

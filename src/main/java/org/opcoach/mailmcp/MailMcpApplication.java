@@ -4,6 +4,7 @@ import org.opcoach.mailmcp.config.ConfigurationException;
 import org.opcoach.mailmcp.config.ManagerUiApplication;
 import org.opcoach.mailmcp.config.TerminalSetupApplication;
 import org.opcoach.mailmcp.config.WebManagerApplication;
+import org.opcoach.mailmcp.config.WebManagerRuntimeFiles;
 import org.opcoach.mailmcp.mcp.McpRuntime;
 import org.opcoach.mailmcp.security.SafeErrorMessage;
 import org.slf4j.Logger;
@@ -48,6 +49,9 @@ public final class MailMcpApplication {
                     WebManagerApplication.run(options.port(), options.openBrowser(), options.startRegistered());
                     return 0;
                 }
+                if (options.command() == Command.WEB_MANAGER_URL) {
+                    return printWebManagerUrl();
+                }
                 McpRuntime runtime = McpRuntime.create(options);
                 runtime.start();
                 return 0;
@@ -64,12 +68,27 @@ public final class MailMcpApplication {
                 return 1;
             }
         }
+
+        private int printWebManagerUrl() {
+            WebManagerRuntimeFiles runtimeFiles = WebManagerRuntimeFiles.defaults();
+            return runtimeFiles.currentUrl()
+                    .map(url -> {
+                        System.out.println(url);
+                        return 0;
+                    })
+                    .orElseGet(() -> {
+                        System.err.println("No running web manager URL found.");
+                        System.err.println("Start it with: java -jar target/opcoach-mcp-mail.jar web-manager");
+                        return 2;
+                    });
+        }
     }
 
     public enum Command {
         SERVER,
         MANAGER,
         WEB_MANAGER,
+        WEB_MANAGER_URL,
         CONFIG_SETUP,
         CONFIG_SET_PASSWORD
     }
@@ -125,6 +144,7 @@ public final class MailMcpApplication {
                     case "--token" -> token = requireValue(args, ++index, "--token");
                     case "manager" -> command = Command.MANAGER;
                     case "web-manager" -> command = Command.WEB_MANAGER;
+                    case "web-manager-url" -> command = Command.WEB_MANAGER_URL;
                     case "config" -> {
                         String subCommand = requireValue(args, ++index, "config");
                         command = switch (subCommand) {
@@ -153,6 +173,7 @@ public final class MailMcpApplication {
                       java -jar target/opcoach-mcp-mail.jar --http [--host 127.0.0.1] [--port 8095] [--token token]
                       java -jar target/opcoach-mcp-mail.jar manager
                       java -jar target/opcoach-mcp-mail.jar web-manager [--port 18100] [--no-open] [--start-registered]
+                      java -jar target/opcoach-mcp-mail.jar web-manager-url
                       java -jar target/opcoach-mcp-mail.jar config setup [--profile default]
                       java -jar target/opcoach-mcp-mail.jar config set-password [--profile default]
 

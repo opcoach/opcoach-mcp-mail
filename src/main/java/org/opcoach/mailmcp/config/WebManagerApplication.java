@@ -59,6 +59,7 @@ public final class WebManagerApplication {
     private final Map<String, HealthStatus> healthStatuses = new ConcurrentHashMap<>();
     private final Set<String> healthChecksInFlight = ConcurrentHashMap.newKeySet();
     private final String token = newToken();
+    private final WebManagerRuntimeFiles runtimeFiles = WebManagerRuntimeFiles.defaults();
 
     private WebManagerApplication() {
     }
@@ -80,14 +81,18 @@ public final class WebManagerApplication {
         HttpServer server = HttpServer.create(new InetSocketAddress(LOCAL_HOST, port), 0);
         server.createContext("/", this::handle);
         server.start();
+        long pid = ProcessHandle.current().pid();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             mcpServerManager.close();
+            runtimeFiles.deleteIfOwnedBy(pid);
             healthExecutor.shutdownNow();
             server.stop(0);
         }, "opcoach-mcp-mail-web-manager-stop"));
         int actualPort = server.getAddress().getPort();
         String url = "http://" + LOCAL_HOST + ":" + actualPort + "/?token=" + token;
+        writeRuntimeUrl(url, pid);
         System.out.println("MCP Mail Local Manager started on " + url);
+        System.out.println("URL saved in " + runtimeFiles.urlFile());
         System.out.println("It is bound to 127.0.0.1 only. Stop this process to close the UI.");
         if (startRegistered) {
             startRegisteredProfiles();
@@ -96,6 +101,14 @@ public final class WebManagerApplication {
             openBrowser(url);
         }
         new CountDownLatch(1).await();
+    }
+
+    private void writeRuntimeUrl(String url, long pid) {
+        try {
+            runtimeFiles.write(url, pid);
+        } catch (ConfigurationException exception) {
+            System.err.println(SafeErrorMessage.clean(exception.getMessage()));
+        }
     }
 
     private void startRegisteredProfiles() {
