@@ -211,7 +211,9 @@ public final class WebManagerApplication {
         body.append("<section class=\"panel servers\">");
         body.append("<div class=\"panel-head\"><div><h2>Registered servers</h2><p>Local MCP URLs and runtime status</p></div>");
         body.append("<a class=\"button ghost\" href=\"").append(link("/", Map.of("mode", "new"))).append("\">New</a></div>");
+        body.append("<div class=\"panel-scroll servers-scroll\">");
         body.append(serverTable(sortedRegistrations, selected.profile(), sort, direction));
+        body.append("</div>");
         body.append("<div class=\"row-actions\">");
         body.append(actionButton("/start", "Start", selected.profile(), !selected.registered() || selected.running(), "good", ""));
         body.append(actionButton("/stop", "Stop", selected.profile(), !selected.registered() || !selected.running(), "danger", ""));
@@ -403,6 +405,7 @@ public final class WebManagerApplication {
         StringBuilder html = new StringBuilder();
         html.append("<form method=\"post\" action=\"").append(action("/profile")).append("\" autocomplete=\"off\">");
         html.append("<input type=\"hidden\" name=\"originalProfile\" value=\"").append(escape(profile.originalProfile())).append("\">");
+        html.append("<div class=\"config-scroll-body\">");
         html.append("""
                 <div class="config-tabs" role="tablist">
                   <button type="button" class="tab-button active" data-tab="server">Server</button>
@@ -443,6 +446,7 @@ public final class WebManagerApplication {
         if (LocalSecretStore.systemUsesEncryptedVault()) {
             html.append(passwordInput("Vault password", "vaultPassword", "Linux only: unlocks the local encrypted password vault."));
         }
+        html.append("</div>");
         html.append("</div>");
         html.append("<div class=\"form-actions\">");
         html.append("<button class=\"button ghost\" type=\"button\" onclick=\"copyText('").append(js(profile.url())).append("')\">Copy MCP URL</button>");
@@ -1170,12 +1174,17 @@ public final class WebManagerApplication {
                     .hero h1 { margin:0; font-size:34px; line-height:1; letter-spacing:0; }
                     .hero p { margin:12px 0 0; color:#F2F1FA; font-size:15px; }
                     .hero .eyebrow { font-weight:700; color:#E6E4F3; margin-bottom:10px; }
-                    .layout { display:grid; grid-template-columns: minmax(420px, 3fr) minmax(360px, 2fr); gap:24px; padding:28px; }
+                    .layout { display:grid; grid-template-columns: minmax(420px, 3fr) minmax(360px, 2fr); gap:24px; padding:28px; height:calc(100vh - 150px); min-height:520px; }
                     .single { max-width: 1040px; margin:28px auto; }
                     .panel { background:white; border:1px solid var(--border); border-radius:16px; box-shadow: 6px 10px 0 rgba(75,63,114,.07); padding:20px; }
+                    .layout .panel { display:flex; flex-direction:column; min-height:360px; overflow:hidden; }
                     .panel-head { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:16px; }
                     .panel h2 { margin:0; font-size:22px; font-weight:700; }
                     .panel p { margin:4px 0 0; color:var(--muted); font-size:13px; }
+                    .panel-scroll { flex:1 1 auto; min-height:0; overflow:auto; }
+                    .servers-scroll { border:1px solid #F0EEF8; border-radius:14px; }
+                    .servers-scroll table { min-width:720px; }
+                    .servers-scroll .empty { margin:0; }
                     table { width:100%%; border-collapse:collapse; }
                     th { text-align:left; color:#535057; border-bottom:1px solid var(--border); padding:8px 10px; font-size:12px; font-weight:700; }
                     td { border-bottom:1px solid #F0EEF8; padding:10px; vertical-align:middle; }
@@ -1198,6 +1207,7 @@ public final class WebManagerApplication {
                     .eye-button { display:inline-flex; width:30px; height:30px; align-items:center; justify-content:center; border:1px solid #ECEAF7; border-radius:999px; background:white; font-size:15px; }
                     .mail-check-detail { margin: 0 0 14px; }
                     .row-actions, .form-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; align-items:center; margin-top:22px; }
+                    .servers .row-actions, .config .form-actions { flex:0 0 auto; background:white; border-top:1px solid #F0EEF8; margin-top:14px; padding-top:14px; }
                     .inline-action { display:inline; }
                     .button { border:0; border-radius:12px; padding:10px 16px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; min-height:40px; }
                     .button:disabled { cursor:not-allowed; background:#ECECF1 !important; color:#A2A2AA !important; }
@@ -1207,6 +1217,8 @@ public final class WebManagerApplication {
                     .danger { color:white; background:linear-gradient(110deg, var(--rose), #E975A7); }
                     .warning { color:white; background:linear-gradient(110deg, #B36B00, #FABD43); }
                     .ghost { color:var(--indigo); background:white; border:1px solid #ECEAF7; }
+                    .config form { display:flex; flex:1 1 auto; flex-direction:column; min-height:0; }
+                    .config-scroll-body { flex:1 1 auto; min-height:0; overflow:auto; padding-right:4px; }
                     .config-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
                     .tab-button { border:1px solid #DEDCEF; border-radius:999px; background:white; color:var(--indigo); padding:8px 12px; font-weight:700; cursor:pointer; }
                     .tab-button.active { background:linear-gradient(110deg, var(--indigo), var(--soft)); color:white; border-color:transparent; }
@@ -1235,7 +1247,7 @@ public final class WebManagerApplication {
                     .summary-label { background:#F4F3F8; color:#4B4B4D; font-weight:700; }
                     .summary-value { background:white; overflow-wrap:anywhere; }
                     .summary-label:nth-last-child(2), .summary-value:last-child { border-bottom:0; }
-                    @media (max-width: 980px) { .layout { grid-template-columns:1fr; padding:16px; } .hero { padding:28px 20px; display:block; } label { grid-template-columns:1fr; } label small { grid-column:1; } }
+                    @media (max-width: 980px) { .layout { grid-template-columns:1fr; padding:16px; height:auto; min-height:0; } .layout .panel { min-height:420px; max-height:calc(100vh - 32px); } .hero { padding:28px 20px; display:block; } label { grid-template-columns:1fr; } label small { grid-column:1; } }
                   </style>
                 </head>
                 <body>
