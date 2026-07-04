@@ -254,13 +254,21 @@ cd $HOME/git/opcoach-mcp-mail
 bin/web-manager --port 18100 --no-open
 ```
 
+On Linux, if `MAIL_MCP_VAULT_PASSWORD` is not set, the command asks:
+
+```text
+Linux vault password:
+```
+
+Enter the vault password once in this terminal session. The web manager uses it to save mailbox passwords and to run mail checks.
+
 Then open the printed URL on your workstation:
 
 ```text
 http://127.0.0.1:18100/?token=the-token-printed-by-the-command
 ```
 
-On Linux, the form includes a `Vault password` field. This password protects the local encrypted vault:
+On Linux, the web manager asks once for the vault password at startup when `MAIL_MCP_VAULT_PASSWORD` is not already set. This password protects the local encrypted vault:
 
 ```text
 ~/.opcoach-mcp-mail/secrets.enc
@@ -268,7 +276,9 @@ On Linux, the form includes a `Vault password` field. This password protects the
 
 The vault stores mailbox passwords encrypted with AES-GCM. The encryption key is derived from the vault password with PBKDF2-HMAC-SHA256. The vault file is restricted to the local user when the filesystem supports POSIX permissions.
 
-After saving a profile, use `Save and start` in the web manager. The generated MCP URL remains local to the server, for example `http://127.0.0.1:8096/mcp`.
+After saving a profile, use `Save and start` in the web manager. The profile form only asks for the mailbox password; the vault stays unlocked in memory for this web manager session. The generated MCP URL remains local to the server, for example `http://127.0.0.1:8096/mcp`.
+
+Use the `Change vault password` button in the purple header only when you need to replace the Linux vault password. It re-encrypts the local vault and the new password must be used at the next server start.
 
 If the encrypted vault exists, `bin/start-server` asks for the vault password and sends it to Java through standard input at startup. It is not put on the command line.
 

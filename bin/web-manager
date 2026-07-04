@@ -18,6 +18,7 @@ Usage: bin/web-manager [--port PORT] [--no-build] [--no-open] [--start-registere
 
 Starts the MCP Mail Local Manager web UI on 127.0.0.1.
 The web manager also hosts local MCP endpoints in the same Java process.
+On Linux, it asks once for the vault password when MAIL_MCP_VAULT_PASSWORD is not set.
 
 Options:
   --port PORT         Local manager port. Defaults to MAIL_MCP_WEB_MANAGER_PORT or 18100.

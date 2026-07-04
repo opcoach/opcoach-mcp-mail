@@ -8,6 +8,7 @@ import org.opcoach.mailmcp.mail.MailboxInfo;
 import org.opcoach.mailmcp.security.SafeErrorMessage;
 
 import java.awt.Desktop;
+import java.io.Console;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -46,7 +47,6 @@ public final class WebManagerApplication {
 
     private final ServerRegistry registry = ServerRegistry.defaultRegistry();
     private final EmbeddedMcpServerManager mcpServerManager = new EmbeddedMcpServerManager();
-    private final SecretStore secretStore = LocalSecretStore.system();
     private final ProfileTransfer transfer = new ProfileTransfer();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(HEALTH_TIMEOUT)
@@ -60,8 +60,16 @@ public final class WebManagerApplication {
     private final Set<String> healthChecksInFlight = ConcurrentHashMap.newKeySet();
     private final String token = newToken();
     private final WebManagerRuntimeFiles runtimeFiles = WebManagerRuntimeFiles.defaults();
+    private volatile SecretStore secretStore;
+    private char[] vaultPassword;
 
     private WebManagerApplication() {
+        this(startupVaultPassword());
+    }
+
+    private WebManagerApplication(char[] vaultPassword) {
+        this.vaultPassword = copy(vaultPassword);
+        this.secretStore = LocalSecretStore.system(this.vaultPassword);
     }
 
     public static void main(String[] args) throws Exception {
@@ -77,6 +85,74 @@ public final class WebManagerApplication {
         new WebManagerApplication().start(port, openBrowser, startRegistered);
     }
 
+    private static char[] startupVaultPassword() {
+        if (!LocalSecretStore.systemUsesEncryptedVault()) {
+            return new char[0];
+        }
+        String configured = System.getenv(EncryptedVaultSecretStore.VAULT_PASSWORD_ENV);
+        if (configured != null && !configured.isBlank()) {
+            char[] password = configured.toCharArray();
+            validateStartupVaultPassword(password);
+            return password;
+        }
+        if ("1".equals(System.getenv(EncryptedVaultSecretStore.VAULT_PASSWORD_STDIN_ENV))) {
+            char[] password = readRequiredVaultPassword("Vault password: ");
+            validateStartupVaultPassword(password);
+            return password;
+        }
+        while (true) {
+            char[] password = readRequiredVaultPassword("Linux vault password: ");
+            try {
+                validateStartupVaultPassword(password);
+                return password;
+            } catch (ConfigurationException exception) {
+                Arrays.fill(password, '\0');
+                System.err.println(SafeErrorMessage.clean(exception.getMessage()));
+            }
+        }
+    }
+
+    private static void validateStartupVaultPassword(char[] password) {
+        if (!Files.exists(EncryptedVaultSecretStore.defaultVaultPath())) {
+            return;
+        }
+        LocalSecretStore.system(password).readPassword("__vault_validation__");
+    }
+
+    private static char[] readRequiredVaultPassword(String prompt) {
+        while (true) {
+            char[] password = readVaultPassword(prompt);
+            if (password == null) {
+                throw new ConfigurationException("Vault password is required on Linux. Set MAIL_MCP_VAULT_PASSWORD or start from an interactive terminal.");
+            }
+            if (password.length > 0) {
+                return password;
+            }
+            System.err.println("Vault password is required on Linux.");
+        }
+    }
+
+    private static char[] readVaultPassword(String prompt) {
+        Console console = System.console();
+        if (console != null) {
+            return console.readPassword("%s", prompt);
+        }
+        try {
+            System.out.print(prompt);
+            StringBuilder builder = new StringBuilder();
+            int value;
+            while ((value = System.in.read()) != -1 && value != '\n' && value != '\r') {
+                builder.append((char) value);
+            }
+            if (value == -1 && builder.isEmpty()) {
+                return null;
+            }
+            return builder.toString().toCharArray();
+        } catch (IOException exception) {
+            throw new ConfigurationException("Unable to read vault password from stdin.", exception);
+        }
+    }
+
     private void start(int port, boolean openBrowser, boolean startRegistered) throws IOException, InterruptedException {
         HttpServer server = HttpServer.create(new InetSocketAddress(LOCAL_HOST, port), 0);
         server.createContext("/", this::handle);
@@ -86,6 +162,7 @@ public final class WebManagerApplication {
             mcpServerManager.close();
             runtimeFiles.deleteIfOwnedBy(pid);
             healthExecutor.shutdownNow();
+            clearVaultPassword();
             server.stop(0);
         }, "opcoach-mcp-mail-web-manager-stop"));
         int actualPort = server.getAddress().getPort();
@@ -116,7 +193,7 @@ public final class WebManagerApplication {
         int failures = 0;
         for (ServerRegistration registration : registry.list()) {
             try {
-                mcpServerManager.start(registration);
+                mcpServerManager.start(registration, "", vaultPasswordForStart());
                 queueHealthCheck(registration, true);
                 started++;
             } catch (RuntimeException exception) {
@@ -141,6 +218,14 @@ public final class WebManagerApplication {
             Map<String, String> query = parseForm(exchange.getRequestURI().getRawQuery());
             if ("GET".equals(method) && "/".equals(path)) {
                 send(exchange, 200, "text/html; charset=utf-8", mainPage(query));
+                return;
+            }
+            if ("GET".equals(method) && "/vault".equals(path)) {
+                send(exchange, 200, "text/html; charset=utf-8", vaultPage(query));
+                return;
+            }
+            if ("POST".equals(method) && "/vault".equals(path)) {
+                handleVaultPost(exchange);
                 return;
             }
             if ("POST".equals(method) && "/profile".equals(path)) {
@@ -186,7 +271,7 @@ public final class WebManagerApplication {
             send(exchange, 404, "text/plain; charset=utf-8", "Not found.");
         } catch (Exception exception) {
             String path = exchange.getRequestURI().getPath();
-            String target = path.startsWith("/import") ? "/import" : path.startsWith("/export") ? "/export" : "/";
+            String target = path.startsWith("/import") ? "/import" : path.startsWith("/export") ? "/export" : path.startsWith("/vault") ? "/vault" : "/";
             redirect(exchange, target, Map.of("error", SafeErrorMessage.clean(exception.getMessage())));
         }
     }
@@ -443,9 +528,6 @@ public final class WebManagerApplication {
         html.append(input("Sent folder", "sentMailbox", profile.sentMailbox(), "", true));
         html.append(input("Trash folder", "trashMailbox", profile.trashMailbox(), "", true));
         html.append(passwordInput("Mailbox password", "password", "Leave empty to keep the stored password."));
-        if (LocalSecretStore.systemUsesEncryptedVault()) {
-            html.append(passwordInput("Vault password", "vaultPassword", "Linux only: unlocks the local encrypted password vault."));
-        }
         html.append("</div>");
         html.append("</div>");
         html.append("<div class=\"form-actions\">");
@@ -462,7 +544,7 @@ public final class WebManagerApplication {
         SaveResult result = saveProfile(values);
         String action = values.getOrDefault("action", "save");
         if ("start".equals(action)) {
-            mcpServerManager.start(result.registration(), result.transientPassword(), result.transientVaultPassword());
+            mcpServerManager.start(result.registration(), result.transientPassword(), vaultPasswordForStart());
             queueHealthCheck(result.registration(), true);
             redirect(exchange, "/", Map.of("profile", result.registration().profile(), "status", "Saved and started " + result.registration().profile() + "."));
             return;
@@ -500,29 +582,23 @@ public final class WebManagerApplication {
         healthStatuses.put(healthKey(registration), HealthStatus.notChecked());
 
         char[] password = values.getOrDefault("password", "").toCharArray();
-        char[] vaultPassword = values.getOrDefault("vaultPassword", "").toCharArray();
         try {
             if (password.length > 0) {
-                SecretStore store = vaultPassword.length > 0
-                        ? LocalSecretStore.system(vaultPassword)
-                        : LocalSecretStore.system();
-                if (store.supportsDurableStorage()) {
-                    store.writePassword(profile, password);
+                if (secretStore.supportsDurableStorage()) {
+                    secretStore.writePassword(profile, password);
                 }
             }
             String transientPassword = password.length > 0 ? new String(password) : "";
-            String transientVaultPassword = password.length == 0 && vaultPassword.length > 0 ? new String(vaultPassword) : "";
-            return new SaveResult(registration, transientPassword, transientVaultPassword);
+            return new SaveResult(registration, transientPassword);
         } finally {
             Arrays.fill(password, '\0');
-            Arrays.fill(vaultPassword, '\0');
         }
     }
 
     private void handleStartPost(HttpExchange exchange) throws IOException {
         Map<String, String> values = postForm(exchange);
         ServerRegistration registration = requiredRegistration(values);
-        mcpServerManager.start(registration);
+        mcpServerManager.start(registration, "", vaultPasswordForStart());
         queueHealthCheck(registration, true);
         redirect(exchange, "/", Map.of("profile", registration.profile(), "status", "Started " + registration.profile() + "."));
     }
@@ -541,7 +617,7 @@ public final class WebManagerApplication {
         mcpServerManager.stop(registration);
         String secretWarning = "";
         try {
-            boolean removed = LocalSecretStore.system().deletePassword(registration.profile());
+            boolean removed = secretStore.deletePassword(registration.profile());
             if (!removed) {
                 secretWarning = " Stored password was not present or could not be removed automatically.";
             }
@@ -551,6 +627,59 @@ public final class WebManagerApplication {
         healthStatuses.remove(healthKey(registration));
         registry.delete(registration);
         redirect(exchange, "/", Map.of("mode", "new", "status", "Deleted " + registration.profile() + "." + secretWarning));
+    }
+
+    private String vaultPage(Map<String, String> query) {
+        StringBuilder html = new StringBuilder();
+        html.append(pageStart("Change vault password"));
+        html.append(hero());
+        html.append("<main class=\"single panel\"><div class=\"panel-head\"><div><h2>Change vault password</h2>");
+        html.append("<p>Linux encrypted vault used by this server process.</p></div></div>");
+        String status = query.getOrDefault("status", "");
+        String error = query.getOrDefault("error", "");
+        if (!status.isBlank()) {
+            html.append("<div class=\"notice ok\">").append(escape(status)).append("</div>");
+        }
+        if (!error.isBlank()) {
+            html.append("<div class=\"notice error\">").append(escape(error)).append("</div>");
+        }
+        if (!LocalSecretStore.systemUsesEncryptedVault()) {
+            html.append("<div class=\"notice warn\">This platform does not use the Linux encrypted vault.</div>");
+            html.append("<div class=\"form-actions\"><a class=\"button ghost\" href=\"").append(link("/", Map.of())).append("\">Back</a></div>");
+        } else {
+            html.append("<form method=\"post\" action=\"").append(action("/vault")).append("\" autocomplete=\"off\">");
+            html.append(passwordInput("New vault password", "vaultPassword", "Used when this Linux server starts."));
+            html.append(passwordInput("Confirm password", "confirmVaultPassword", "Use the same value."));
+            html.append("<div class=\"form-actions\"><a class=\"button ghost\" href=\"").append(link("/", Map.of()))
+                    .append("\">Back</a><button class=\"button strong\" type=\"submit\">Change vault password</button></div>");
+            html.append("</form>");
+        }
+        html.append("</main>").append(pageEnd());
+        return html.toString();
+    }
+
+    private void handleVaultPost(HttpExchange exchange) throws IOException {
+        if (!LocalSecretStore.systemUsesEncryptedVault()) {
+            redirect(exchange, "/vault", Map.of("error", "This platform does not use the Linux encrypted vault."));
+            return;
+        }
+        Map<String, String> values = postForm(exchange);
+        char[] newPassword = values.getOrDefault("vaultPassword", "").toCharArray();
+        char[] confirmation = values.getOrDefault("confirmVaultPassword", "").toCharArray();
+        try {
+            if (newPassword.length == 0) {
+                throw new ConfigurationException("Vault password is required.");
+            }
+            if (!Arrays.equals(newPassword, confirmation)) {
+                throw new ConfigurationException("Vault password confirmation does not match.");
+            }
+            changeVaultPassword(newPassword);
+            healthStatuses.clear();
+            redirect(exchange, "/", Map.of("status", "Vault password changed. Use the new password at the next server start."));
+        } finally {
+            Arrays.fill(newPassword, '\0');
+            Arrays.fill(confirmation, '\0');
+        }
     }
 
     private String checkDetailsPage(Map<String, String> query) {
@@ -822,6 +951,22 @@ public final class WebManagerApplication {
         } catch (IOException ignored) {
             return false;
         }
+    }
+
+    private synchronized String vaultPasswordForStart() {
+        return vaultPassword.length == 0 ? "" : new String(vaultPassword);
+    }
+
+    private synchronized void changeVaultPassword(char[] newPassword) {
+        LocalSecretStore.changeSystemVaultPassword(vaultPassword, newPassword);
+        Arrays.fill(vaultPassword, '\0');
+        vaultPassword = copy(newPassword);
+        secretStore = LocalSecretStore.system(vaultPassword);
+    }
+
+    private synchronized void clearVaultPassword() {
+        Arrays.fill(vaultPassword, '\0');
+        vaultPassword = new char[0];
     }
 
     private HealthStatus checkHealth(ServerRegistration registration) {
@@ -1174,6 +1319,8 @@ public final class WebManagerApplication {
                     .hero h1 { margin:0; font-size:34px; line-height:1; letter-spacing:0; }
                     .hero p { margin:12px 0 0; color:#F2F1FA; font-size:15px; }
                     .hero .eyebrow { font-weight:700; color:#E6E4F3; margin-bottom:10px; }
+                    .hero-actions { display:flex; gap:10px; align-items:center; }
+                    .hero-button { color:white; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.34); }
                     .layout { display:grid; grid-template-columns: minmax(420px, 3fr) minmax(360px, 2fr); gap:24px; padding:28px; height:calc(100vh - 150px); min-height:520px; }
                     .single { max-width: 1040px; margin:28px auto; }
                     .panel { background:white; border:1px solid var(--border); border-radius:16px; box-shadow: 6px 10px 0 rgba(75,63,114,.07); padding:20px; }
@@ -1247,7 +1394,7 @@ public final class WebManagerApplication {
                     .summary-label { background:#F4F3F8; color:#4B4B4D; font-weight:700; }
                     .summary-value { background:white; overflow-wrap:anywhere; }
                     .summary-label:nth-last-child(2), .summary-value:last-child { border-bottom:0; }
-                    @media (max-width: 980px) { .layout { grid-template-columns:1fr; padding:16px; height:auto; min-height:0; } .layout .panel { min-height:420px; max-height:calc(100vh - 32px); } .hero { padding:28px 20px; display:block; } label { grid-template-columns:1fr; } label small { grid-column:1; } }
+                    @media (max-width: 980px) { .layout { grid-template-columns:1fr; padding:16px; height:auto; min-height:0; } .layout .panel { min-height:420px; max-height:calc(100vh - 32px); } .hero { padding:28px 20px; display:block; } .hero-actions { margin-top:18px; } label { grid-template-columns:1fr; } label small { grid-column:1; } }
                   </style>
                 </head>
                 <body>
@@ -1274,7 +1421,10 @@ public final class WebManagerApplication {
                 """.formatted(escape(title));
     }
 
-    private static String hero() {
+    private String hero() {
+        String vaultAction = LocalSecretStore.systemUsesEncryptedVault()
+                ? "<a class=\"button hero-button\" href=\"" + link("/vault", Map.of()) + "\">Change vault password</a>"
+                : "";
         return """
                 <header class="hero">
                   <div>
@@ -1282,8 +1432,9 @@ public final class WebManagerApplication {
                     <h1>MCP Mail Local Manager</h1>
                     <p>Configure mailboxes, start local MCP servers, export/import safe profiles.</p>
                   </div>
+                  <div class="hero-actions">%s</div>
                 </header>
-                """;
+                """.formatted(vaultAction);
     }
 
     private static String pageEnd() {
@@ -1294,6 +1445,10 @@ public final class WebManagerApplication {
         byte[] bytes = new byte[24];
         new SecureRandom().nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private static char[] copy(char[] value) {
+        return value == null ? new char[0] : Arrays.copyOf(value, value.length);
     }
 
     private static String urlDecode(String value) {
@@ -1388,7 +1543,7 @@ public final class WebManagerApplication {
         }
     }
 
-    private record SaveResult(ServerRegistration registration, String transientPassword, String transientVaultPassword) {
+    private record SaveResult(ServerRegistration registration, String transientPassword) {
     }
 
     private record ProfileForm(
@@ -1496,6 +1651,7 @@ public final class WebManagerApplication {
 
                     Starts the local web manager on 127.0.0.1.
                     With --start-registered, also starts every registered MCP endpoint in this process.
+                    On Linux, prompts once for the vault password when MAIL_MCP_VAULT_PASSWORD is not set.
                     Default port: 18100.
                     """;
         }

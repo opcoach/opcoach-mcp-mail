@@ -77,6 +77,17 @@ public final class EncryptedVaultSecretStore implements SecretStore {
         return vaultPath;
     }
 
+    public void changeMasterPassword(char[] newMasterPassword) {
+        if (newMasterPassword == null || newMasterPassword.length == 0) {
+            throw new ConfigurationException("Vault password is required.");
+        }
+        if (!Files.exists(vaultPath)) {
+            return;
+        }
+        Properties secrets = readSecrets();
+        withMasterPassword(newMasterPassword).writeSecrets(secrets);
+    }
+
     @Override
     public Optional<String> readPassword(String profile) {
         if (!Files.exists(vaultPath)) {

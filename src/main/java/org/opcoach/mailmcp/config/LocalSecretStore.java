@@ -34,6 +34,15 @@ public final class LocalSecretStore implements SecretStore {
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
     }
 
+    public static void changeSystemVaultPassword(char[] currentPassword, char[] newPassword) {
+        if (!systemUsesEncryptedVault()) {
+            throw new ConfigurationException("The encrypted vault is only used on Linux.");
+        }
+        new EncryptedVaultSecretStore()
+                .withMasterPassword(currentPassword)
+                .changeMasterPassword(newPassword);
+    }
+
     @Override
     public Optional<String> readPassword(String profile) {
         return delegate.readPassword(profile);

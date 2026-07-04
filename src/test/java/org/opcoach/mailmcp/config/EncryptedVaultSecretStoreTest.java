@@ -46,6 +46,21 @@ class EncryptedVaultSecretStoreTest {
     }
 
     @Test
+    void changesVaultMasterPassword() {
+        Path vault = tempDir.resolve("secrets.enc");
+        EncryptedVaultSecretStore store = store(vault, "vault-secret");
+        store.writePassword("default", "mail-secret".toCharArray());
+
+        store.changeMasterPassword("new-vault-secret".toCharArray());
+
+        assertEquals("mail-secret", store(vault, "new-vault-secret").readPassword("default").orElseThrow());
+        assertThrows(
+                ConfigurationException.class,
+                () -> store(vault, "vault-secret").readPassword("default")
+        );
+    }
+
+    @Test
     void deletesOnlySelectedProfilePassword() throws Exception {
         Path vault = tempDir.resolve("secrets.enc");
         EncryptedVaultSecretStore store = store(vault, "vault-secret");
