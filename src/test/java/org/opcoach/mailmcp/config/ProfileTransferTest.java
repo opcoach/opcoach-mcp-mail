@@ -29,6 +29,7 @@ class ProfileTransferTest {
                 "olivier@example.com",
                 "Olivier",
                 "reply@example.com",
+                "INBOX,error+warning_opcoach",
                 "INBOX.Sent",
                 "INBOX.Trash"
         );
@@ -38,6 +39,7 @@ class ProfileTransferTest {
 
         assertTrue(exported.contains("profile.0.name=olivier"));
         assertTrue(exported.contains("profile.0.replyTo.address=reply@example.com"));
+        assertTrue(exported.contains("profile.0.incoming.mailboxes=INBOX,error+warning_opcoach"));
         assertFalse(lowerCase.contains("password"));
         assertFalse(lowerCase.contains("token"));
         assertFalse(lowerCase.contains("secret"));
@@ -58,6 +60,7 @@ class ProfileTransferTest {
                 "olivier@example.com",
                 "Olivier",
                 "",
+                "INBOX",
                 "Sent",
                 "Trash"
         );
@@ -68,6 +71,7 @@ class ProfileTransferTest {
         assertEquals("Mail_Olivier", imported.getFirst().profile());
         assertEquals(8096, imported.getFirst().mcpPort());
         assertEquals(ConnectionSecurity.STARTTLS, imported.getFirst().smtpSecurity());
+        assertEquals("INBOX", imported.getFirst().incomingMailboxes());
         assertEquals("Sent", imported.getFirst().sentMailbox());
     }
 

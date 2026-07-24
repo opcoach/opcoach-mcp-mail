@@ -90,6 +90,7 @@ class JakartaMailSenderTest {
                 "training@example.com",
                 "MCP Training",
                 replyToAddress,
+                List.of("INBOX"),
                 "Sent",
                 "Trash",
                 MailLimits.DEFAULTS,

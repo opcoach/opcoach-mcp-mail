@@ -3,6 +3,7 @@ package org.opcoach.mailmcp.config;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -83,6 +84,7 @@ class SecretResolverTest {
                 "training@example.com",
                 "MCP Training",
                 "",
+                List.of("INBOX"),
                 "INBOX.Sent",
                 "INBOX.Trash",
                 MailLimits.DEFAULTS,

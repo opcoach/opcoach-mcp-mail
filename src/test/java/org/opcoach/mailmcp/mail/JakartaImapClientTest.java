@@ -70,6 +70,7 @@ class JakartaImapClientTest {
 
             assertEquals(1, summaries.size());
             MessageSummary summary = summaries.getFirst();
+            assertEquals("INBOX", summary.mailbox());
             assertTrue(summary.snippet().contains("Hello"));
             assertFalse(summary.attachments().isEmpty());
 
@@ -186,6 +187,70 @@ class JakartaImapClientTest {
             assertEquals("Sent newest", summaries.get(0).subject());
             assertEquals("Sent older", summaries.get(1).subject());
             assertTrue(summaries.stream().allMatch(summary -> summary.to().contains("client@example.com")));
+        } finally {
+            greenMail.stop();
+        }
+    }
+
+    @Test
+    void searchesConfiguredIncomingMailboxWhenMailboxIsImplicit() throws Exception {
+        ServerSetup imap = new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAP);
+        GreenMail greenMail = new GreenMail(imap);
+        greenMail.start();
+        try {
+            greenMail.setUser("training@example.com", "training@example.com", "secret");
+            MailConfiguration configuration = configuration(greenMail.getImap().getPort(), List.of("error+error_opcoach"));
+            appendToFolder(
+                    configuration,
+                    "secret",
+                    "error+error_opcoach",
+                    simpleMessage("Error report", "server@example.com", "training@example.com")
+            );
+            MailApplicationService service = new MailApplicationService(configuration, "secret");
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> search = (Map<String, Object>) service.searchMessages(Map.of("limit", 5));
+            @SuppressWarnings("unchecked")
+            List<MessageSummary> summaries = (List<MessageSummary>) search.get("messages");
+
+            assertEquals(1, summaries.size());
+            assertEquals("error+error_opcoach", summaries.getFirst().mailbox());
+            assertEquals("Error report", summaries.getFirst().subject());
+        } finally {
+            greenMail.stop();
+        }
+    }
+
+    @Test
+    void searchesSeveralConfiguredIncomingMailboxesWhenMailboxIsImplicit() throws Exception {
+        ServerSetup imap = new ServerSetup(0, "127.0.0.1", ServerSetup.PROTOCOL_IMAP);
+        GreenMail greenMail = new GreenMail(imap);
+        greenMail.start();
+        try {
+            greenMail.setUser("training@example.com", "training@example.com", "secret");
+            MailConfiguration configuration = configuration(greenMail.getImap().getPort(), List.of("error+error_opcoach", "error+warning_opcoach"));
+            appendToFolder(
+                    configuration,
+                    "secret",
+                    "error+error_opcoach",
+                    simpleMessage("Error report", "server@example.com", "training@example.com")
+            );
+            appendToFolder(
+                    configuration,
+                    "secret",
+                    "error+warning_opcoach",
+                    simpleMessage("Warning report", "server@example.com", "training@example.com")
+            );
+            MailApplicationService service = new MailApplicationService(configuration, "secret");
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> search = (Map<String, Object>) service.searchMessages(Map.of("limit", 5));
+            @SuppressWarnings("unchecked")
+            List<MessageSummary> summaries = (List<MessageSummary>) search.get("messages");
+
+            assertEquals(2, summaries.size());
+            assertTrue(summaries.stream().anyMatch(summary -> "error+error_opcoach".equals(summary.mailbox())));
+            assertTrue(summaries.stream().anyMatch(summary -> "error+warning_opcoach".equals(summary.mailbox())));
         } finally {
             greenMail.stop();
         }
@@ -369,6 +434,10 @@ class JakartaImapClientTest {
     }
 
     private static MailConfiguration configuration(int imapPort) {
+        return configuration(imapPort, List.of("INBOX"));
+    }
+
+    private static MailConfiguration configuration(int imapPort, List<String> incomingMailboxes) {
         return new MailConfiguration(
                 "default",
                 new MailEndpoint("127.0.0.1", imapPort, ConnectionSecurity.NONE),
@@ -377,6 +446,7 @@ class JakartaImapClientTest {
                 "training@example.com",
                 "MCP Training",
                 "",
+                incomingMailboxes,
                 "Sent",
                 "Trash",
                 MailLimits.DEFAULTS,

@@ -36,6 +36,7 @@ public final class TerminalSetupApplication {
                 prompter.ask("Sender address", "training@example.com"),
                 prompter.ask("Sender name", "MCP Training"),
                 prompter.ask("Reply-To address (optional)", ""),
+                prompter.ask("Incoming folder(s), comma separated", MailConfiguration.DEFAULT_INCOMING_MAILBOX),
                 prompter.ask("Sent folder", "INBOX.Sent"),
                 prompter.ask("Trash folder", "INBOX.Trash")
         );

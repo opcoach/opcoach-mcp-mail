@@ -34,6 +34,7 @@ public final class ProfileTransfer {
             if (!profile.replyToAddress().isBlank()) {
                 properties.setProperty(prefix + "replyTo.address", profile.replyToAddress());
             }
+            properties.setProperty(prefix + "incoming.mailboxes", profile.incomingMailboxes());
             properties.setProperty(prefix + "sent.mailbox", profile.sentMailbox());
             properties.setProperty(prefix + "trash.mailbox", profile.trashMailbox());
         }
@@ -75,6 +76,7 @@ public final class ProfileTransfer {
                     required(properties, prefix + "from.address"),
                     properties.getProperty(prefix + "from.name", "").trim(),
                     properties.getProperty(prefix + "replyTo.address", "").trim(),
+                    properties.getProperty(prefix + "incoming.mailboxes", MailConfiguration.DEFAULT_INCOMING_MAILBOX).trim(),
                     required(properties, prefix + "sent.mailbox"),
                     required(properties, prefix + "trash.mailbox")
             ));
@@ -96,6 +98,7 @@ public final class ProfileTransfer {
                 configuration.fromAddress(),
                 configuration.fromName(),
                 configuration.replyToAddress(),
+                configuration.incomingMailboxesProperty(),
                 configuration.sentMailbox(),
                 configuration.trashMailbox()
         );
@@ -146,6 +149,7 @@ public final class ProfileTransfer {
             String fromAddress,
             String fromName,
             String replyToAddress,
+            String incomingMailboxes,
             String sentMailbox,
             String trashMailbox
     ) {
@@ -157,6 +161,14 @@ public final class ProfileTransfer {
             require(smtpHost, "smtp.host");
             require(username, "username");
             require(fromAddress, "from.address");
+            if (incomingMailboxes == null || incomingMailboxes.isBlank()) {
+                incomingMailboxes = MailConfiguration.DEFAULT_INCOMING_MAILBOX;
+            }
+            incomingMailboxes = String.join(",", MailConfiguration.parseMailboxes(
+                    incomingMailboxes,
+                    MailConfiguration.DEFAULT_INCOMING_MAILBOX,
+                    "incoming.mailboxes"
+            ));
             require(sentMailbox, "sent.mailbox");
             require(trashMailbox, "trash.mailbox");
             if (fromName == null) {
@@ -189,6 +201,7 @@ public final class ProfileTransfer {
                     fromAddress,
                     fromName,
                     replyToAddress,
+                    incomingMailboxes,
                     sentMailbox,
                     trashMailbox
             );

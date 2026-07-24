@@ -30,6 +30,7 @@ class ConfigurationWriterTest {
                 "training@example.com",
                 "MCP Training",
                 "",
+                "INBOX,error+warning_opcoach",
                 "INBOX.Sent",
                 "INBOX.Trash"
         );
@@ -38,6 +39,7 @@ class ConfigurationWriterTest {
 
         String content = Files.readString(config);
         assertTrue(content.contains("imap.host=imap.example.com"));
+        assertTrue(content.contains("incoming.mailboxes=INBOX,error+warning_opcoach"));
         assertTrue(content.contains("trash.mailbox=INBOX.Trash"));
         assertFalse(content.contains("replyTo.address"));
         assertFalse(content.toLowerCase().contains("password"));
@@ -59,6 +61,7 @@ class ConfigurationWriterTest {
                 "training@example.com",
                 "MCP Training",
                 "reply@example.com",
+                "INBOX",
                 "INBOX.Sent",
                 "INBOX.Trash"
         );

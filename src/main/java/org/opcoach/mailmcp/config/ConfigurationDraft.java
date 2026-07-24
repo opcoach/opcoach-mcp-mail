@@ -12,6 +12,7 @@ public record ConfigurationDraft(
         String fromAddress,
         String fromName,
         String replyToAddress,
+        String incomingMailboxes,
         String sentMailbox,
         String trashMailbox
 ) {
@@ -22,6 +23,10 @@ public record ConfigurationDraft(
         require(smtpHost, "smtp.host");
         require(username, "username");
         require(fromAddress, "from.address");
+        if (incomingMailboxes == null || incomingMailboxes.isBlank()) {
+            incomingMailboxes = MailConfiguration.DEFAULT_INCOMING_MAILBOX;
+        }
+        MailConfiguration.parseMailboxes(incomingMailboxes, MailConfiguration.DEFAULT_INCOMING_MAILBOX, "incoming.mailboxes");
         require(sentMailbox, "sent.mailbox");
         require(trashMailbox, "trash.mailbox");
         if (imapPort < 1 || imapPort > 65535) {

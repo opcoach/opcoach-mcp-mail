@@ -73,7 +73,7 @@ public final class JakartaImapClient {
                 Message[] messages = latestMessages(folder, uidFolder, query);
                 prefetchSummaryFields(folder, messages);
                 return Arrays.stream(messages)
-                        .map(message -> summary(uidFolder, message))
+                        .map(message -> summary(folder, uidFolder, message))
                         .toList();
             } finally {
                 folder.close(false);
@@ -401,7 +401,7 @@ public final class JakartaImapClient {
         return new MailboxInfo(folder.getName(), folder.getFullName(), count, attributes);
     }
 
-    private MessageSummary summary(UIDFolder uidFolder, Message message) {
+    private MessageSummary summary(Folder folder, UIDFolder uidFolder, Message message) {
         try {
             long uid = uidFolder.getUID(message);
             MimeMessageExtractor.ExtractedMessage extracted = extractor.extract(
@@ -411,6 +411,7 @@ public final class JakartaImapClient {
             );
             return new MessageSummary(
                     Long.toString(uid),
+                    folder.getFullName(),
                     safeSubject(message),
                     addresses(message.getFrom()),
                     addresses(message.getAllRecipients()),

@@ -114,6 +114,7 @@ public final class ManagerUiApplication {
     private JTextField fromAddressField;
     private JTextField fromNameField;
     private JTextField replyToAddressField;
+    private JTextField incomingMailboxesField;
     private JTextField sentMailboxField;
     private JTextField trashMailboxField;
     private JPasswordField passwordField;
@@ -312,6 +313,7 @@ public final class ManagerUiApplication {
         fromAddressField = styledTextField();
         fromNameField = styledTextField();
         replyToAddressField = styledTextField();
+        incomingMailboxesField = styledTextField(MailConfiguration.DEFAULT_INCOMING_MAILBOX);
         sentMailboxField = styledTextField("INBOX.Sent");
         trashMailboxField = styledTextField("INBOX.Trash");
         passwordField = new JPasswordField();
@@ -325,6 +327,7 @@ public final class ManagerUiApplication {
         row = addField(fields, c, row, "IMAP host", imapHostField, "Example: imap.example.com");
         row = addField(fields, c, row, "IMAP port", imapPortField, "993 for SSL/TLS.");
         row = addField(fields, c, row, "IMAP security", imapSecurityField, "");
+        row = addField(fields, c, row, "Incoming folders", incomingMailboxesField, "Comma-separated IMAP folders read by default.");
         row = addGroupTitle(fields, c, row, "Outgoing mail");
         row = addField(fields, c, row, "SMTP host", smtpHostField, "Example: smtp.example.com");
         row = addField(fields, c, row, "SMTP port", smtpPortField, "465 for SSL/TLS, 587 for STARTTLS.");
@@ -433,6 +436,7 @@ public final class ManagerUiApplication {
         fromAddressField.setText("training@example.com");
         fromNameField.setText("MCP Training");
         replyToAddressField.setText("");
+        incomingMailboxesField.setText(MailConfiguration.DEFAULT_INCOMING_MAILBOX);
         sentMailboxField.setText("INBOX.Sent");
         trashMailboxField.setText("INBOX.Trash");
         passwordField.setText("");
@@ -462,6 +466,7 @@ public final class ManagerUiApplication {
                 fromAddressField.setText(configuration.fromAddress());
                 fromNameField.setText(configuration.fromName());
                 replyToAddressField.setText(configuration.replyToAddress());
+                incomingMailboxesField.setText(configuration.incomingMailboxesProperty());
                 sentMailboxField.setText(configuration.sentMailbox());
                 trashMailboxField.setText(configuration.trashMailbox());
                 setStatus("Loaded " + registration.profile() + ".");
@@ -499,6 +504,7 @@ public final class ManagerUiApplication {
                 fromAddressField.getText().trim(),
                 fromNameField.getText().trim(),
                 replyToAddressField.getText().trim(),
+                incomingMailboxesField.getText().trim(),
                 sentMailboxField.getText().trim(),
                 trashMailboxField.getText().trim()
         );
@@ -847,15 +853,16 @@ public final class ManagerUiApplication {
         } catch (RuntimeException exception) {
             return HealthStatus.error(errorLabel(exception), stackTrace(exception), resolutionFor(exception));
         }
-        MailboxInfo inbox = findMailbox(mailboxes, "INBOX");
-        if (inbox == null) {
-            return HealthStatus.warning(
-                    "Missing INBOX",
-                    "The IMAP connection succeeded, but no folder named INBOX was returned.\n\nAvailable folders:\n" + mailboxList(mailboxes),
-                    "Check the mailbox provider folder naming and IMAP namespace."
-            );
-        }
         List<String> missing = new ArrayList<>();
+        List<MailboxInfo> incoming = new ArrayList<>();
+        for (String mailbox : configuration.incomingMailboxes()) {
+            MailboxInfo found = findMailbox(mailboxes, mailbox);
+            if (found == null) {
+                missing.add(mailbox);
+            } else {
+                incoming.add(found);
+            }
+        }
         if (findMailbox(mailboxes, configuration.sentMailbox()) == null) {
             missing.add(configuration.sentMailbox());
         }
@@ -867,10 +874,10 @@ public final class ManagerUiApplication {
             return HealthStatus.warning(
                     "Missing " + missingLabel,
                     "Missing configured folder(s): " + String.join(", ", missing) + "\n\nAvailable folders:\n" + mailboxList(mailboxes),
-                    "Open the mailbox folder list and update the Sent/Trash folder names in the profile configuration."
+                    "Open the mailbox folder list and update the Incoming/Sent/Trash folder names in the profile configuration."
             );
         }
-        return HealthStatus.ok("INBOX " + inbox.messageCount());
+        return HealthStatus.ok(incomingHealthLabel(incoming));
     }
 
     private boolean httpHealthOk(ServerRegistration registration) {
@@ -920,6 +927,18 @@ public final class ManagerUiApplication {
                     .append(")");
         }
         return builder.toString();
+    }
+
+    private static String incomingHealthLabel(List<MailboxInfo> mailboxes) {
+        if (mailboxes.isEmpty()) {
+            return "OK";
+        }
+        if (mailboxes.size() == 1) {
+            MailboxInfo mailbox = mailboxes.getFirst();
+            return mailbox.fullName() + " " + mailbox.messageCount();
+        }
+        int total = mailboxes.stream().mapToInt(MailboxInfo::messageCount).sum();
+        return total + " in " + mailboxes.size() + " folders";
     }
 
     private static String errorLabel(Throwable throwable) {

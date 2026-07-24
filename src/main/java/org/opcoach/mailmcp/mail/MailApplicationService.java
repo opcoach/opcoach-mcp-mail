@@ -6,6 +6,8 @@ import org.opcoach.mailmcp.config.MailConfiguration;
 import org.opcoach.mailmcp.mcp.MailToolNames;
 import org.opcoach.mailmcp.mcp.MailToolService;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -25,7 +27,7 @@ public final class MailApplicationService implements MailToolService {
         this.configuration = configuration;
         this.sender = new JakartaMailSender(configuration, password);
         this.imapClient = new JakartaImapClient(configuration, password);
-        this.queryParser = new MailQueryParser(configuration.limits());
+        this.queryParser = new MailQueryParser(configuration.limits(), configuration.defaultIncomingMailbox());
         this.auditLogger = auditLogger;
     }
 
@@ -57,7 +59,7 @@ public final class MailApplicationService implements MailToolService {
 
     @Override
     public Object searchMessages(Map<String, Object> arguments) {
-        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", "INBOX"));
+        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", configuration.defaultIncomingMailbox()));
         try {
             SearchMessagesQuery query = queryParser.search(arguments);
             if (!query.mailboxExplicit() && query.toContains() != null && query.fromContains() == null) {
@@ -74,7 +76,7 @@ public final class MailApplicationService implements MailToolService {
                         false
                 );
             }
-            Object result = Map.of("messages", imapClient.searchMessages(query));
+            Object result = Map.of("messages", searchMessages(query));
             auditLogger.record(AuditEvent.success(MailToolNames.SEARCH_MESSAGES, query.mailbox(), null, List.of()));
             return result;
         } catch (RuntimeException exception) {
@@ -85,7 +87,7 @@ public final class MailApplicationService implements MailToolService {
 
     @Override
     public Object getMessage(Map<String, Object> arguments) {
-        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", "INBOX"));
+        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", configuration.defaultIncomingMailbox()));
         try {
             GetMessageQuery query = queryParser.getMessage(arguments);
             Object result = imapClient.getMessage(query);
@@ -99,7 +101,7 @@ public final class MailApplicationService implements MailToolService {
 
     @Override
     public Object getAttachment(Map<String, Object> arguments) {
-        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", "INBOX"));
+        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", configuration.defaultIncomingMailbox()));
         try {
             GetAttachmentQuery query = queryParser.getAttachment(arguments);
             Object result = imapClient.getAttachment(query);
@@ -113,7 +115,7 @@ public final class MailApplicationService implements MailToolService {
 
     @Override
     public Object getAttachmentInfo(Map<String, Object> arguments) {
-        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", "INBOX"));
+        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", configuration.defaultIncomingMailbox()));
         try {
             GetAttachmentInfoQuery query = queryParser.getAttachmentInfo(arguments);
             Object result = Map.of("attachments", imapClient.getAttachmentInfo(query));
@@ -127,7 +129,7 @@ public final class MailApplicationService implements MailToolService {
 
     @Override
     public Object saveAttachment(Map<String, Object> arguments) {
-        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", "INBOX"));
+        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", configuration.defaultIncomingMailbox()));
         try {
             SaveAttachmentCommand command = queryParser.saveAttachment(arguments);
             SavedAttachment result = imapClient.saveAttachment(command);
@@ -141,7 +143,7 @@ public final class MailApplicationService implements MailToolService {
 
     @Override
     public Object moveMessage(Map<String, Object> arguments) {
-        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", "INBOX"));
+        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", configuration.defaultIncomingMailbox()));
         try {
             MoveMessageCommand command = queryParser.moveMessage(arguments);
             MoveMessageResult result = imapClient.moveMessage(command);
@@ -155,7 +157,7 @@ public final class MailApplicationService implements MailToolService {
 
     @Override
     public Object deleteMessage(Map<String, Object> arguments) {
-        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", "INBOX"));
+        String mailbox = String.valueOf(arguments.getOrDefault("mailbox", configuration.defaultIncomingMailbox()));
         try {
             DeleteMessageCommand command = queryParser.deleteMessage(arguments);
             MoveMessageResult result = imapClient.deleteMessage(command, configuration.trashMailbox());
@@ -165,5 +167,37 @@ public final class MailApplicationService implements MailToolService {
             auditLogger.record(AuditEvent.failure(MailToolNames.DELETE_MESSAGE, mailbox));
             throw exception;
         }
+    }
+
+    private List<MessageSummary> searchMessages(SearchMessagesQuery query) {
+        if (query.mailboxExplicit() || configuration.incomingMailboxes().size() == 1 || configuration.sentMailbox().equals(query.mailbox())) {
+            return imapClient.searchMessages(query);
+        }
+        if (query.beforeUid() != null) {
+            throw new IllegalArgumentException("beforeUid requires an explicit mailbox when several incoming folders are configured.");
+        }
+        List<MessageSummary> messages = new ArrayList<>();
+        for (String mailbox : configuration.incomingMailboxes()) {
+            messages.addAll(imapClient.searchMessages(withMailbox(query, mailbox)));
+        }
+        return messages.stream()
+                .sorted(Comparator.comparing(MessageSummary::receivedAt).reversed())
+                .limit(query.limit())
+                .toList();
+    }
+
+    private static SearchMessagesQuery withMailbox(SearchMessagesQuery query, String mailbox) {
+        return new SearchMessagesQuery(
+                mailbox,
+                query.fromContains(),
+                query.toContains(),
+                query.subjectContains(),
+                query.since(),
+                query.until(),
+                query.unreadOnly(),
+                query.limit(),
+                query.beforeUid(),
+                true
+        );
     }
 }

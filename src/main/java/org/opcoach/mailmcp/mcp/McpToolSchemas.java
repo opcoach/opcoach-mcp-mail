@@ -44,7 +44,7 @@ public final class McpToolSchemas {
     public static Map<String, Object> searchMessages() {
         return object(
                 props(
-                        entry("mailbox", string("IMAP folder to query. Defaults to INBOX, or to the configured Sent folder when only toContains is provided.", "INBOX")),
+                        entry("mailbox", string("IMAP folder to query. When omitted, the profile's configured incoming folder(s) are searched, or the configured Sent folder when only toContains is provided.")),
                         entry("fromContains", string("Partial sender filter.")),
                         entry("toContains", string("Partial recipient filter. Use this to find recent messages sent to an email address or person.")),
                         entry("subjectContains", string("Partial subject filter.")),
@@ -61,7 +61,7 @@ public final class McpToolSchemas {
     public static Map<String, Object> getMessage() {
         return object(
                 props(
-                        entry("mailbox", string("IMAP folder containing the message.", "INBOX")),
+                        entry("mailbox", string("IMAP folder containing the message. Use the mailbox returned by searchMessages when available; otherwise the profile's first configured incoming folder is used.")),
                         entry("uid", string("Stable IMAP UID for the message.")),
                         entry("includeHtml", bool("Include the bounded HTML body.", false)),
                         entry("maxBodyBytes", integer("Maximum returned plain-text body size.", 1, 100_000, 12_000))
@@ -73,7 +73,7 @@ public final class McpToolSchemas {
     public static Map<String, Object> getAttachment() {
         return object(
                 props(
-                        entry("mailbox", string("IMAP folder containing the message.", "INBOX")),
+                        entry("mailbox", string("IMAP folder containing the message. Use the mailbox returned by searchMessages when available; otherwise the profile's first configured incoming folder is used.")),
                         entry("uid", string("Stable IMAP UID for the message.")),
                         entry("attachmentId", string("Attachment identifier returned by getMessage.")),
                         entry("maxBytes", integer("Maximum inline attachment bytes before base64 encoding. Use saveAttachment for larger files.", 1, 75_000, 75_000))
@@ -85,7 +85,7 @@ public final class McpToolSchemas {
     public static Map<String, Object> getAttachmentInfo() {
         return object(
                 props(
-                        entry("mailbox", string("IMAP folder containing the message.", "INBOX")),
+                        entry("mailbox", string("IMAP folder containing the message. Use the mailbox returned by searchMessages when available; otherwise the profile's first configured incoming folder is used.")),
                         entry("uid", string("Stable IMAP UID for the message.")),
                         entry("attachmentId", string("Optional attachment identifier returned by getMessage or getAttachmentInfo. When omitted, all attachments are returned."))
                 ),
@@ -96,7 +96,7 @@ public final class McpToolSchemas {
     public static Map<String, Object> saveAttachment() {
         return object(
                 props(
-                        entry("mailbox", string("IMAP folder containing the message.", "INBOX")),
+                        entry("mailbox", string("IMAP folder containing the message. Use the mailbox returned by searchMessages when available; otherwise the profile's first configured incoming folder is used.")),
                         entry("uid", string("Stable IMAP UID for the message.")),
                         entry("attachmentId", string("Attachment identifier returned by getMessage or getAttachmentInfo.")),
                         entry("directory", string("Optional relative subdirectory below the local attachment root. Absolute paths and '..' are rejected.")),
@@ -110,7 +110,7 @@ public final class McpToolSchemas {
     public static Map<String, Object> moveMessage() {
         return object(
                 props(
-                        entry("mailbox", string("IMAP folder currently containing the message.", "INBOX")),
+                        entry("mailbox", string("IMAP folder currently containing the message. Use the mailbox returned by searchMessages when available; otherwise the profile's first configured incoming folder is used.")),
                         entry("uid", string("Stable IMAP UID for the message in the source folder.")),
                         entry("targetMailbox", string("IMAP folder where the message must be moved. The folder is created when the server allows it."))
                 ),
@@ -121,7 +121,7 @@ public final class McpToolSchemas {
     public static Map<String, Object> deleteMessage() {
         return object(
                 props(
-                        entry("mailbox", string("IMAP folder currently containing the message.", "INBOX")),
+                        entry("mailbox", string("IMAP folder currently containing the message. Use the mailbox returned by searchMessages when available; otherwise the profile's first configured incoming folder is used.")),
                         entry("uid", string("Stable IMAP UID for the message in the source folder. The message is moved to the configured trash folder."))
                 ),
                 List.of("uid")

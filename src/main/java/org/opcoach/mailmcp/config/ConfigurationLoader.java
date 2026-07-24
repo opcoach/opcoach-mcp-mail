@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Properties;
 
 public final class ConfigurationLoader {
@@ -44,6 +45,11 @@ public final class ConfigurationLoader {
         MailEndpoint smtp = endpoint(properties, "smtp");
         MailLimits limits = MailLimits.from(properties);
         Path auditPath = Path.of(value(properties, "audit.path", ConfigurationPaths.defaultAuditPath(configPath).toString()));
+        List<String> incomingMailboxes = MailConfiguration.parseMailboxes(
+                value(properties, "incoming.mailboxes", value(properties, "inbox.mailbox", MailConfiguration.DEFAULT_INCOMING_MAILBOX)),
+                MailConfiguration.DEFAULT_INCOMING_MAILBOX,
+                "incoming.mailboxes"
+        );
         String sentMailbox = required(properties, "sent.mailbox");
         String trashMailbox = value(properties, "trash.mailbox", "INBOX.Trash");
 
@@ -55,6 +61,7 @@ public final class ConfigurationLoader {
                 required(properties, "from.address"),
                 value(properties, "from.name", ""),
                 value(properties, "replyTo.address", ""),
+                incomingMailboxes,
                 sentMailbox,
                 trashMailbox,
                 limits,

@@ -4,6 +4,7 @@ import java.util.List;
 
 public record MessageSummary(
         String uid,
+        String mailbox,
         String subject,
         String from,
         String to,

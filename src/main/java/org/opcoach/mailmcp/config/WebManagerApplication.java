@@ -469,6 +469,7 @@ public final class WebManagerApplication {
                         ? configuration.fromAddress()
                         : configuration.fromName() + " <" + configuration.fromAddress() + ">"));
                 html.append(summaryRow("Reply-To", configuration.replyToAddress().isBlank() ? "(none)" : configuration.replyToAddress()));
+                html.append(summaryRow("Incoming folders", configuration.incomingMailboxesProperty()));
                 html.append(summaryRow("Sent folder", configuration.sentMailbox()));
                 html.append(summaryRow("Trash folder", configuration.trashMailbox()));
                 html.append(summaryRow("Mail check", healthStatuses.getOrDefault(healthKey(registration), HealthStatus.notChecked()).label()));
@@ -510,6 +511,7 @@ public final class WebManagerApplication {
         html.append(input("IMAP host", "imapHost", profile.imapHost(), "Example: imap.example.com", true));
         html.append(input("IMAP port", "imapPort", Integer.toString(profile.imapPort()), "993 for SSL/TLS.", true));
         html.append(select("IMAP security", "imapSecurity", profile.imapSecurity()));
+        html.append(input("Incoming folders", "incomingMailboxes", profile.incomingMailboxes(), "Comma-separated IMAP folders read by default.", true));
         html.append("</div>");
 
         html.append("<div class=\"config-section\" data-panel=\"outgoing\">");
@@ -574,6 +576,7 @@ public final class WebManagerApplication {
                 required(values, "fromAddress"),
                 values.getOrDefault("fromName", "").trim(),
                 values.getOrDefault("replyToAddress", "").trim(),
+                values.getOrDefault("incomingMailboxes", MailConfiguration.DEFAULT_INCOMING_MAILBOX).trim(),
                 required(values, "sentMailbox"),
                 required(values, "trashMailbox")
         );
@@ -806,6 +809,7 @@ public final class WebManagerApplication {
             html.append(hidden(index, "fromAddress", snapshot.fromAddress()));
             html.append(hidden(index, "fromName", snapshot.fromName()));
             html.append(hidden(index, "replyToAddress", snapshot.replyToAddress()));
+            html.append(hidden(index, "incomingMailboxes", snapshot.incomingMailboxes()));
             html.append(hidden(index, "sentMailbox", snapshot.sentMailbox()));
             html.append(hidden(index, "trashMailbox", snapshot.trashMailbox()));
             html.append("<label>Local MCP port<input name=\"profile.").append(index)
@@ -861,6 +865,7 @@ public final class WebManagerApplication {
                 required(values, prefix + "fromAddress"),
                 values.getOrDefault(prefix + "fromName", ""),
                 values.getOrDefault(prefix + "replyToAddress", ""),
+                values.getOrDefault(prefix + "incomingMailboxes", MailConfiguration.DEFAULT_INCOMING_MAILBOX),
                 required(values, prefix + "sentMailbox"),
                 required(values, prefix + "trashMailbox")
         );
@@ -1005,15 +1010,16 @@ public final class WebManagerApplication {
         } catch (RuntimeException exception) {
             return HealthStatus.error(errorLabel(exception), stackTrace(exception), resolutionFor(exception));
         }
-        MailboxInfo inbox = findMailbox(mailboxes, "INBOX");
-        if (inbox == null) {
-            return HealthStatus.warning(
-                    "Missing INBOX",
-                    "The IMAP connection succeeded, but no folder named INBOX was returned.\n\nAvailable folders:\n" + mailboxList(mailboxes),
-                    "Check the mailbox provider folder naming and IMAP namespace."
-            );
-        }
         List<String> missing = new ArrayList<>();
+        List<MailboxInfo> incoming = new ArrayList<>();
+        for (String mailbox : configuration.incomingMailboxes()) {
+            MailboxInfo found = findMailbox(mailboxes, mailbox);
+            if (found == null) {
+                missing.add(mailbox);
+            } else {
+                incoming.add(found);
+            }
+        }
         if (findMailbox(mailboxes, configuration.sentMailbox()) == null) {
             missing.add(configuration.sentMailbox());
         }
@@ -1025,10 +1031,10 @@ public final class WebManagerApplication {
             return HealthStatus.warning(
                     "Missing " + missingLabel,
                     "Missing configured folder(s): " + String.join(", ", missing) + "\n\nAvailable folders:\n" + mailboxList(mailboxes),
-                    "Open the mailbox folder list and update the Sent/Trash folder names in the profile configuration."
+                    "Open the mailbox folder list and update the Incoming/Sent/Trash folder names in the profile configuration."
             );
         }
-        return HealthStatus.ok("INBOX " + inbox.messageCount());
+        return HealthStatus.ok(incomingHealthLabel(incoming));
     }
 
     private boolean httpHealthOk(ServerRegistration registration) {
@@ -1078,6 +1084,18 @@ public final class WebManagerApplication {
                     .append(")");
         }
         return builder.toString();
+    }
+
+    private static String incomingHealthLabel(List<MailboxInfo> mailboxes) {
+        if (mailboxes.isEmpty()) {
+            return "OK";
+        }
+        if (mailboxes.size() == 1) {
+            MailboxInfo mailbox = mailboxes.getFirst();
+            return mailbox.fullName() + " " + mailbox.messageCount();
+        }
+        int total = mailboxes.stream().mapToInt(MailboxInfo::messageCount).sum();
+        return total + " in " + mailboxes.size() + " folders";
     }
 
     private static String errorLabel(Throwable throwable) {
@@ -1560,6 +1578,7 @@ public final class WebManagerApplication {
             String fromAddress,
             String fromName,
             String replyToAddress,
+            String incomingMailboxes,
             String sentMailbox,
             String trashMailbox,
             boolean registered,
@@ -1582,6 +1601,7 @@ public final class WebManagerApplication {
                     "training@example.com",
                     "MCP Training",
                     "",
+                    MailConfiguration.DEFAULT_INCOMING_MAILBOX,
                     "INBOX.Sent",
                     "INBOX.Trash",
                     false,
@@ -1604,6 +1624,7 @@ public final class WebManagerApplication {
                     configuration.fromAddress(),
                     configuration.fromName(),
                     configuration.replyToAddress(),
+                    configuration.incomingMailboxesProperty(),
                     configuration.sentMailbox(),
                     configuration.trashMailbox(),
                     true,

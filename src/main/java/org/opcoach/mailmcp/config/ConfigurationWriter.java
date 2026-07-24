@@ -32,6 +32,11 @@ public final class ConfigurationWriter {
         if (draft.replyToAddress() != null && !draft.replyToAddress().isBlank()) {
             properties.setProperty("replyTo.address", draft.replyToAddress().trim());
         }
+        properties.setProperty("incoming.mailboxes", String.join(",", MailConfiguration.parseMailboxes(
+                draft.incomingMailboxes(),
+                MailConfiguration.DEFAULT_INCOMING_MAILBOX,
+                "incoming.mailboxes"
+        )));
         properties.setProperty("sent.mailbox", draft.sentMailbox());
         properties.setProperty("trash.mailbox", draft.trashMailbox());
 

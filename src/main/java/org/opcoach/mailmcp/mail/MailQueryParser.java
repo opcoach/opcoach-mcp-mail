@@ -9,9 +9,15 @@ import java.util.Map;
 public final class MailQueryParser {
 
     private final MailLimits limits;
+    private final String defaultMailbox;
 
     public MailQueryParser(MailLimits limits) {
+        this(limits, "INBOX");
+    }
+
+    public MailQueryParser(MailLimits limits, String defaultMailbox) {
         this.limits = limits;
+        this.defaultMailbox = defaultMailbox == null || defaultMailbox.isBlank() ? "INBOX" : defaultMailbox;
     }
 
     public SearchMessagesQuery search(Map<String, Object> arguments) {
@@ -21,7 +27,7 @@ public final class MailQueryParser {
             throw new IllegalArgumentException("since must be on or before until.");
         }
         return new SearchMessagesQuery(
-                string(arguments, "mailbox", "INBOX"),
+                string(arguments, "mailbox", defaultMailbox),
                 string(arguments, "fromContains", null),
                 string(arguments, "toContains", null),
                 string(arguments, "subjectContains", null),
@@ -36,7 +42,7 @@ public final class MailQueryParser {
 
     public GetMessageQuery getMessage(Map<String, Object> arguments) {
         return new GetMessageQuery(
-                string(arguments, "mailbox", "INBOX"),
+                string(arguments, "mailbox", defaultMailbox),
                 uid(arguments),
                 bool(arguments, "includeHtml", false),
                 Math.min(integer(arguments, "maxBodyBytes", limits.maxBodyBytes()), limits.maxBodyBytes())
@@ -46,7 +52,7 @@ public final class MailQueryParser {
     public GetAttachmentQuery getAttachment(Map<String, Object> arguments) {
         int maxAttachmentPayload = Math.max(1, (limits.maxResultBytes() * 3) / 4);
         return new GetAttachmentQuery(
-                string(arguments, "mailbox", "INBOX"),
+                string(arguments, "mailbox", defaultMailbox),
                 uid(arguments),
                 required(arguments, "attachmentId"),
                 Math.min(integer(arguments, "maxBytes", limits.maxAttachmentBytes()), Math.min(limits.maxAttachmentBytes(), maxAttachmentPayload))
@@ -55,7 +61,7 @@ public final class MailQueryParser {
 
     public GetAttachmentInfoQuery getAttachmentInfo(Map<String, Object> arguments) {
         return new GetAttachmentInfoQuery(
-                string(arguments, "mailbox", "INBOX"),
+                string(arguments, "mailbox", defaultMailbox),
                 uid(arguments),
                 string(arguments, "attachmentId", null)
         );
@@ -63,7 +69,7 @@ public final class MailQueryParser {
 
     public SaveAttachmentCommand saveAttachment(Map<String, Object> arguments) {
         return new SaveAttachmentCommand(
-                string(arguments, "mailbox", "INBOX"),
+                string(arguments, "mailbox", defaultMailbox),
                 uid(arguments),
                 required(arguments, "attachmentId"),
                 string(arguments, "directory", ""),
@@ -74,7 +80,7 @@ public final class MailQueryParser {
 
     public MoveMessageCommand moveMessage(Map<String, Object> arguments) {
         return new MoveMessageCommand(
-                string(arguments, "mailbox", "INBOX"),
+                string(arguments, "mailbox", defaultMailbox),
                 uid(arguments),
                 required(arguments, "targetMailbox")
         );
@@ -82,7 +88,7 @@ public final class MailQueryParser {
 
     public DeleteMessageCommand deleteMessage(Map<String, Object> arguments) {
         return new DeleteMessageCommand(
-                string(arguments, "mailbox", "INBOX"),
+                string(arguments, "mailbox", defaultMailbox),
                 uid(arguments)
         );
     }

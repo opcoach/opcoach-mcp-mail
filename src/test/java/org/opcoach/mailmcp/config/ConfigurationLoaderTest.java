@@ -6,6 +6,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -29,6 +30,7 @@ class ConfigurationLoaderTest {
                 username=training@example.com
                 from.address=training@example.com
                 from.name=MCP Training
+                incoming.mailboxes=INBOX,error+warning_opcoach
                 sent.mailbox=INBOX.Sent
                 """);
 
@@ -38,6 +40,7 @@ class ConfigurationLoaderTest {
         assertEquals("imap.example.com", loaded.imap().host());
         assertEquals(ConnectionSecurity.SSL_TLS, loaded.smtp().security());
         assertEquals("", loaded.replyToAddress());
+        assertEquals(List.of("INBOX", "error+warning_opcoach"), loaded.incomingMailboxes());
         assertEquals("INBOX.Trash", loaded.trashMailbox());
         assertEquals(25, loaded.limits().maxSearchLimit());
     }
