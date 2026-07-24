@@ -31,12 +31,22 @@ username=formation@example.com
 from.address=formation@example.com
 from.name=Formation MCP
 replyTo.address=reponses@example.com
+incoming.mailboxes=INBOX
 sent.mailbox=INBOX.Sent
+trash.mailbox=INBOX.Trash
 ```
 
 Le mot de passe peut être fourni temporairement:
 
 `replyTo.address` est optionnel. Si l'utilisateur ne renseigne rien, la propriété peut être absente et aucun header `Reply-To` n'est ajouté aux messages envoyés.
+
+`incoming.mailboxes` contient un ou plusieurs noms complets de dossiers IMAP séparés par des virgules. La valeur par défaut est `INBOX` pour préserver la compatibilité avec les profils existants. Les noms doivent correspondre exactement à ceux renvoyés par `listMailboxes`, par exemple:
+
+```properties
+incoming.mailboxes=INBOX.error_opcoach,INBOX.warning_opcoach
+```
+
+Un alias de distribution comme `error+error_opcoach` n'est pas un nom de dossier IMAP et ne doit être utilisé que si le serveur IMAP expose réellement un dossier portant ce nom.
 
 ```bash
 export MAIL_MCP_PASSWORD="mot-de-passe-fictif"
@@ -51,7 +61,9 @@ L'assistant de configuration demande uniquement les paramètres nécessaires:
 - identifiant mail;
 - adresse et nom d'expéditeur;
 - adresse Reply-To optionnelle;
+- un ou plusieurs dossiers entrants;
 - dossier des envoyés;
+- dossier de corbeille;
 - mot de passe ou mot de passe applicatif.
 
 Le mot de passe est saisi en mode masqué dans le terminal ou dans la mini UI locale, puis enregistré dans le stockage secret local disponible. Il n'est jamais écrit dans le fichier de configuration.

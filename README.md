@@ -163,9 +163,9 @@ In the web manager, use `Save and start` when a profile is ready, then `Copy MCP
 http://127.0.0.1:8095/mcp
 ```
 
-The `Mail check` column tests each profile in the background when the web manager opens and after a server starts. It checks the local MCP health endpoint when the server is running, verifies IMAP access, reads the `INBOX` message count, and confirms that the configured Sent and Trash folders exist.
+The `Mail check` column tests each profile in the background when the web manager opens and after a server starts. It checks the local MCP health endpoint when the server is running, verifies IMAP access, reads the message count from every configured incoming folder, and confirms that the configured incoming, Sent, and Trash folders exist.
 
-Import/export is intentionally non-secret. Exported files contain profile names, local MCP ports, IMAP/SMTP hosts, security modes, usernames, sender identity, Reply-To, Sent folder, and Trash folder. They never contain mailbox passwords, vault passwords, bearer tokens, or stored local credentials. During import, profiles that already exist locally are unchecked by default; new profiles are checked by default. Imported profiles still require entering the mailbox password locally before use.
+Import/export is intentionally non-secret. Exported files contain profile names, local MCP ports, IMAP/SMTP hosts, security modes, usernames, sender identity, Reply-To, incoming folders, Sent folder, and Trash folder. They never contain mailbox passwords, vault passwords, bearer tokens, or stored local credentials. During import, profiles that already exist locally are unchecked by default; new profiles are checked by default. Imported profiles still require entering the mailbox password locally before use.
 
 ## Desktop Manager
 
@@ -177,7 +177,7 @@ The desktop manager lets you create mailbox profiles, edit IMAP/SMTP settings, s
 
 The left panel lists registered profiles with their local URL and running status. The right panel edits the selected profile: incoming mail, outgoing mail, identity, optional Reply-To address, local host, and local port. Use `Save and start` when the profile is ready, then `Copy URL` to configure the AI client.
 When Reply-To is empty, sent emails do not include a `Reply-To` header.
-The `Mail check` column validates the mailbox configuration in the background: MCP health when the server is running, IMAP access, `INBOX` message count, and existence of the configured Sent and Trash folders. Port conflicts with other registered profiles are rejected before saving.
+The `Mail check` column validates the mailbox configuration in the background: MCP health when the server is running, IMAP access, message counts from the configured incoming folders, and existence of the configured incoming, Sent, and Trash folders. Port conflicts with other registered profiles are rejected before saving.
 
 Main actions:
 
@@ -234,6 +234,20 @@ bin/start-all
 ```
 
 Passwords are not written to configuration files. On macOS, they are stored in the local keychain with the profile name. On Linux, they are stored in a local encrypted vault protected by a vault password. On other platforms, use `MAIL_MCP_PASSWORD` temporarily.
+
+### Multiple incoming folders in one profile
+
+The `Incoming folders` field accepts one or more comma-separated IMAP folder names. Use the exact full names returned by `listMailboxes` or displayed under `Available folders` by the mail check:
+
+```text
+INBOX.error_opcoach,INBOX.warning_opcoach
+```
+
+Email aliases such as `error+error_opcoach` are delivery addresses, not necessarily IMAP folder names. For example, if the server reports `INBOX.error_opcoach`, configure that exact value.
+
+When an MCP `searchMessages` call does not specify `mailbox`, the server searches every configured incoming folder, combines the results by received date, and applies the requested limit. Each result includes its `mailbox`, which must be reused with `getMessage`, `moveMessage`, or `deleteMessage`.
+
+With several incoming folders, cursor pagination using `beforeUid` must also specify one `mailbox`, because IMAP UIDs are local to each folder.
 
 ## Headless Linux Server
 
@@ -353,6 +367,16 @@ For direct jar usage, the default non-secret configuration file is:
 ~/.opcoach-mcp-mail/config.properties
 ```
 
+The relevant folder properties are:
+
+```properties
+incoming.mailboxes=INBOX.error_opcoach,INBOX.warning_opcoach
+sent.mailbox=INBOX.Sent
+trash.mailbox=INBOX.Trash
+```
+
+`incoming.mailboxes` defaults to `INBOX` when absent, so existing profiles remain compatible.
+
 The macOS keychain is supported for passwords. Linux uses the encrypted local vault. On other platforms, use `MAIL_MCP_PASSWORD` temporarily.
 
 ## Codex HTTP Configuration
@@ -382,7 +406,7 @@ Authentication: none for localhost
 
 - `sendEmail`: sends a text or HTML email with base64 attachments, then attempts to copy it to Sent.
 - `listMailboxes`: lists the available IMAP folders.
-- `searchMessages`: searches messages with text filters, inclusive received-date range (`since`/`until`), `limit`, and `beforeUid` cursor paging.
+- `searchMessages`: searches messages with text filters, inclusive received-date range (`since`/`until`), `limit`, and `beforeUid` cursor paging. Without an explicit `mailbox`, it searches every configured incoming folder.
 - `getMessage`: reads a specific message by UID.
 - `getAttachment`: retrieves a small attachment inline as base64. This is intentionally limited to avoid large JSON responses.
 - `getAttachmentInfo`: lists attachment metadata for one message without downloading contents.
