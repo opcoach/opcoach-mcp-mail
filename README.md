@@ -33,6 +33,19 @@ javac -version
 
 Both commands should report version 24 or newer.
 
+### TLS Certificate Trust On Windows
+
+When no custom Java truststore is configured, the application validates IMAP and SMTP certificates against both the JDK truststore and the trusted root certificates maintained by Windows. Certificate-chain validation and hostname verification remain enabled.
+
+If `javax.net.ssl.trustStore` or `javax.net.ssl.trustStoreType` is set explicitly, that custom Java truststore remains authoritative and the Windows certificate store is not added automatically.
+
+For an IONOS France mailbox, use the provider's published endpoints:
+
+```text
+IMAP: imap.ionos.fr, port 993, SSL/TLS
+SMTP: smtp.ionos.fr, port 465, SSL/TLS
+```
+
 ## Local Build
 
 On Windows Command Prompt (do not use the git bash for these commands):

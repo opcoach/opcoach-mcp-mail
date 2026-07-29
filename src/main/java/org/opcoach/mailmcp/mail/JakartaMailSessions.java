@@ -31,6 +31,7 @@ final class JakartaMailSessions {
         if (endpoint.security() == ConnectionSecurity.SSL_TLS) {
             properties.put("mail.smtps.ssl.enable", "true");
         }
+        configureTls(properties, protocol, endpoint.security());
         return properties;
     }
 
@@ -46,7 +47,17 @@ final class JakartaMailSessions {
         if (endpoint.security() == ConnectionSecurity.SSL_TLS) {
             properties.put("mail.imaps.ssl.enable", "true");
         }
+        configureTls(properties, protocol, endpoint.security());
         return properties;
+    }
+
+    private static void configureTls(Properties properties, String protocol, ConnectionSecurity security) {
+        if (security == ConnectionSecurity.NONE) {
+            return;
+        }
+        properties.put("mail." + protocol + ".ssl.checkserveridentity", "true");
+        PlatformSslContext.windowsAndJavaSocketFactory()
+                .ifPresent(socketFactory -> properties.put("mail." + protocol + ".ssl.socketFactory", socketFactory));
     }
 
     private static Properties baseProperties(String protocol, MailEndpoint endpoint) {

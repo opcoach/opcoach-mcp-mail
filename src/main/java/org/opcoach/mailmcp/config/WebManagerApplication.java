@@ -1103,6 +1103,9 @@ public final class WebManagerApplication {
         if (containsAny(text, "auth", "login", "credential", "password", "invalid credentials")) {
             return "Error: Authentication";
         }
+        if (containsAny(text, "pkix", "certpath", "certification path", "certificate_unknown")) {
+            return "Error: TLS certificate";
+        }
         if (containsAny(text, "timeout", "timed out", "connection", "unknown host", "network", "refused")) {
             return "Error: Network";
         }
@@ -1119,6 +1122,9 @@ public final class WebManagerApplication {
         String text = throwableText(throwable);
         if (containsAny(text, "auth", "login", "credential", "password", "invalid credentials")) {
             return "Check the email username and app password. If the provider requires app passwords, generate a new one and save it again in the web manager.";
+        }
+        if (containsAny(text, "pkix", "certpath", "certification path", "certificate_unknown")) {
+            return "Use the exact IMAP hostname published by the mail provider and update the trusted root certificates. On Windows, the application uses both the Java and Windows root stores unless a custom Java truststore is configured.";
         }
         if (containsAny(text, "timeout", "timed out", "connection", "unknown host", "network", "refused")) {
             return "Check the IMAP host, port, network access, firewall, and whether the provider allows IMAP connections from this machine.";
