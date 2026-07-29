@@ -35,13 +35,13 @@ Both commands should report version 24 or newer.
 
 ## Local Build
 
-On Windows Command Prompt:
+On Windows Command Prompt (do not use the git bash for these commands):
 
 ```cmd
 git clone https://github.com/opcoach/opcoach-mcp-mail.git
 cd opcoach-mcp-mail
-mvnw.cmd clean verify
-mvnw.cmd -DskipTests package
+./mvnw.cmd clean verify
+./mvnw.cmd -DskipTests package
 java -jar target\opcoach-mcp-mail.jar web-manager
 ```
 
