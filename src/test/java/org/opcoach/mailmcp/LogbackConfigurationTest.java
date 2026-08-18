@@ -30,11 +30,12 @@ class LogbackConfigurationTest {
             assertTrue(configuration.contains("<maxFileSize>50MB</maxFileSize>"));
             assertTrue(configuration.contains("<maxHistory>10</maxHistory>"));
             assertTrue(configuration.contains("<totalSizeCap>450MB</totalSizeCap>"));
-            assertTrue(configuration.contains("${MCP_LOG_LEVEL:-INFO}"));
+            assertTrue(configuration.contains("${MAIL_MCP_LOG_LEVEL:-INFO}"));
+            assertTrue(configuration.contains("${user.home}/.opcoach-mcp-mail/logs/opcoach-mcp-mail.log"));
         }
 
         LoggerContext context = new LoggerContext();
-        context.putProperty("MCP_LOG_FILE", tempDirectory.resolve("mail-mcp.log").toString());
+        context.putProperty("MAIL_MCP_LOG_FILE", tempDirectory.resolve("mail-mcp.log").toString());
         try (InputStream input = getClass().getResourceAsStream("/logback.xml")) {
             JoranConfigurator configurator = new JoranConfigurator();
             configurator.setContext(context);

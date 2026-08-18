@@ -456,6 +456,25 @@ or with the Java property:
 java -Dmail.mcp.attachmentDir=/srv/opcoach-mcp-mail/attachments -jar target/opcoach-mcp-mail.jar --http
 ```
 
+## Logs
+
+The logging configuration is bundled in the application jar. No external logging file is required. By default, logs are written to:
+
+```text
+~/.opcoach-mcp-mail/logs/opcoach-mcp-mail.log
+```
+
+The active log rotates every day and at 50 MB. Archives are Gzip-compressed, retained for at most 10 history periods, and capped at 450 MB in addition to the active file. The default level is `INFO`; `DEBUG` and `TRACE` are not enabled by default.
+
+Server deployments can override the file or level without replacing the bundled configuration:
+
+```bash
+export MAIL_MCP_LOG_FILE=/srv/opcoach-mcp-mail/logs/opcoach-mcp-mail.log
+export MAIL_MCP_LOG_LEVEL=INFO
+```
+
+Retention settings are maintained in `src/main/resources/logback.xml`.
+
 ## Security
 
 - No permanent destructive action in v1: `deleteMessage` moves messages to the configured trash folder.

@@ -171,6 +171,9 @@ public final class WebManagerApplication {
         int actualPort = server.getAddress().getPort();
         String url = "http://" + LOCAL_HOST + ":" + actualPort + "/?token=" + token;
         writeRuntimeUrl(url, pid);
+        System.out.println("MCP Mail Local Manager started on " + url);
+        System.out.println("URL saved in " + runtimeFiles.urlFile());
+        System.out.println("It is bound to 127.0.0.1 only. Stop this process to close the UI.");
         LOGGER.info("MCP Mail Local Manager started on http://{}:{}/ (token omitted from logs)", LOCAL_HOST, actualPort);
         LOGGER.info("Web manager URL saved in {}", runtimeFiles.urlFile());
         LOGGER.info("Web manager is bound to 127.0.0.1 only");

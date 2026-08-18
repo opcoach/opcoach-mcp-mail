@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <property name="LOG_FILE"
-              value="${MCP_LOG_FILE:-${user.home}/.optimumAI/logs/mail-mcp.log}"/>
-    <property name="LOG_LEVEL" value="${MCP_LOG_LEVEL:-INFO}"/>
+              value="${MAIL_MCP_LOG_FILE:-${user.home}/.opcoach-mcp-mail/logs/opcoach-mcp-mail.log}"/>
+    <property name="LOG_LEVEL" value="${MAIL_MCP_LOG_LEVEL:-INFO}"/>
 
     <appender name="MCP_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_FILE}</file>
