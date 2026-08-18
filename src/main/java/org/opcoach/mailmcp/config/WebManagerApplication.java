@@ -6,6 +6,8 @@ import org.opcoach.mailmcp.config.ProfileTransfer.ProfileSnapshot;
 import org.opcoach.mailmcp.mail.JakartaImapClient;
 import org.opcoach.mailmcp.mail.MailboxInfo;
 import org.opcoach.mailmcp.security.SafeErrorMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.awt.Desktop;
 import java.io.Console;
@@ -41,6 +43,7 @@ import java.util.concurrent.Executors;
 
 public final class WebManagerApplication {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(WebManagerApplication.class);
     private static final int DEFAULT_PORT = 18100;
     private static final String LOCAL_HOST = "127.0.0.1";
     private static final Duration HEALTH_TIMEOUT = Duration.ofSeconds(2);
@@ -168,9 +171,9 @@ public final class WebManagerApplication {
         int actualPort = server.getAddress().getPort();
         String url = "http://" + LOCAL_HOST + ":" + actualPort + "/?token=" + token;
         writeRuntimeUrl(url, pid);
-        System.out.println("MCP Mail Local Manager started on " + url);
-        System.out.println("URL saved in " + runtimeFiles.urlFile());
-        System.out.println("It is bound to 127.0.0.1 only. Stop this process to close the UI.");
+        LOGGER.info("MCP Mail Local Manager started on http://{}:{}/ (token omitted from logs)", LOCAL_HOST, actualPort);
+        LOGGER.info("Web manager URL saved in {}", runtimeFiles.urlFile());
+        LOGGER.info("Web manager is bound to 127.0.0.1 only");
         if (startRegistered) {
             startRegisteredProfiles();
         }
@@ -184,7 +187,7 @@ public final class WebManagerApplication {
         try {
             runtimeFiles.write(url, pid);
         } catch (ConfigurationException exception) {
-            System.err.println(SafeErrorMessage.clean(exception.getMessage()));
+            LOGGER.warn("Unable to write the web manager runtime URL: {}", SafeErrorMessage.clean(exception.getMessage()));
         }
     }
 
@@ -198,12 +201,12 @@ public final class WebManagerApplication {
                 started++;
             } catch (RuntimeException exception) {
                 failures++;
-                System.err.println("Unable to start profile " + registration.profile() + ": " + SafeErrorMessage.clean(exception.getMessage()));
+                LOGGER.warn("Unable to start profile {}: {}", registration.profile(), SafeErrorMessage.clean(exception.getMessage()));
             }
         }
-        System.out.println("Started " + started + " registered MCP endpoint(s) in the web-manager process.");
+        LOGGER.info("Started {} registered MCP endpoint(s) in the web-manager process", started);
         if (failures > 0) {
-            System.err.println(failures + " registered MCP endpoint(s) could not be started. Open the web manager for details.");
+            LOGGER.warn("{} registered MCP endpoint(s) could not be started; open the web manager for details", failures);
         }
     }
 
