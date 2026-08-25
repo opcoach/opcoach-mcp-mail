@@ -302,7 +302,7 @@ public final class WebManagerApplication {
         body.append("<section class=\"panel servers\">");
         body.append("<div class=\"panel-head\"><div><h2>Registered servers</h2><p>Local MCP URLs and runtime status</p></div>");
         body.append("<a class=\"button ghost\" href=\"").append(link("/", Map.of("mode", "new"))).append("\">New</a></div>");
-        body.append("<div class=\"panel-scroll servers-scroll\">");
+        body.append("<div class=\"panel-scroll servers-scroll\" id=\"servers-scroll\">");
         body.append(serverTable(sortedRegistrations, selected.profile(), sort, direction));
         body.append("</div>");
         body.append("<div class=\"row-actions\">");
@@ -1436,6 +1436,23 @@ public final class WebManagerApplication {
                     file.text().then(text => document.getElementById('payload').value = text);
                   }
                   document.addEventListener('DOMContentLoaded', () => {
+                    const serversScroll = document.getElementById('servers-scroll');
+                    const serversScrollKey = 'mcpMailManagerServersScroll';
+                    if (serversScroll) {
+                      try {
+                        const savedScroll = JSON.parse(sessionStorage.getItem(serversScrollKey) || '{}');
+                        serversScroll.scrollTop = Number(savedScroll.top) || 0;
+                        serversScroll.scrollLeft = Number(savedScroll.left) || 0;
+                      } catch (ignored) {
+                        sessionStorage.removeItem(serversScrollKey);
+                      }
+                      const saveServersScroll = () => sessionStorage.setItem(serversScrollKey, JSON.stringify({
+                        top: serversScroll.scrollTop,
+                        left: serversScroll.scrollLeft
+                      }));
+                      serversScroll.addEventListener('scroll', saveServersScroll, { passive: true });
+                      window.addEventListener('pagehide', saveServersScroll);
+                    }
                     const preferredTab = localStorage.getItem('mcpMailManagerTab') || 'server';
                     const activate = (name) => {
                       document.querySelectorAll('.tab-button').forEach(button => button.classList.toggle('active', button.dataset.tab === name));
