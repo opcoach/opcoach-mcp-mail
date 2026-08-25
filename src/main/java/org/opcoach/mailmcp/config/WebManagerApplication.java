@@ -402,7 +402,32 @@ public final class WebManagerApplication {
             return "";
         }
         String refreshUrl = link("/", Map.of("profile", selectedProfile, "sort", sort, "dir", direction));
-        return "<script>setTimeout(() => { window.location.href = '" + js(refreshUrl) + "'; }, 1600);</script>";
+        return """
+                <script id="mail-health-refresh">
+                  (() => {
+                    const refreshHealth = () => window.setTimeout(async () => {
+                      try {
+                        const response = await fetch('%s', { cache: 'no-store' });
+                        if (!response.ok) return;
+                        const refreshedPage = new DOMParser().parseFromString(await response.text(), 'text/html');
+                        const currentList = document.getElementById('servers-scroll');
+                        const refreshedList = refreshedPage.getElementById('servers-scroll');
+                        if (currentList && refreshedList) {
+                          const top = currentList.scrollTop;
+                          const left = currentList.scrollLeft;
+                          currentList.innerHTML = refreshedList.innerHTML;
+                          currentList.scrollTop = top;
+                          currentList.scrollLeft = left;
+                        }
+                        if (refreshedPage.getElementById('mail-health-refresh')) refreshHealth();
+                      } catch (ignored) {
+                        // A later manual refresh will recover transient network failures.
+                      }
+                    }, 1600);
+                    refreshHealth();
+                  })();
+                </script>
+                """.formatted(js(refreshUrl));
     }
 
     private void queueInitialHealthChecks(List<ServerRegistration> registrations) {
