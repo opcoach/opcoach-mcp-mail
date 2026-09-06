@@ -15,12 +15,18 @@ public final class WindowsDpapiSecretStore implements SecretStore {
 
     private static final Duration COMMAND_TIMEOUT = Duration.ofSeconds(15);
     private static final String PROTECT_SCRIPT = """
+            [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+            $OutputEncoding = [Console]::OutputEncoding
+            Add-Type -AssemblyName System.Security
             $plain = [Convert]::FromBase64String([Console]::In.ReadToEnd())
             $cipher = [System.Security.Cryptography.ProtectedData]::Protect(
               $plain, $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
             [Console]::Out.Write([Convert]::ToBase64String($cipher))
             """;
     private static final String UNPROTECT_SCRIPT = """
+            [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+            $OutputEncoding = [Console]::OutputEncoding
+            Add-Type -AssemblyName System.Security
             $cipher = [Convert]::FromBase64String([Console]::In.ReadToEnd())
             $plain = [System.Security.Cryptography.ProtectedData]::Unprotect(
               $cipher, $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
