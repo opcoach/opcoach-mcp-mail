@@ -104,6 +104,26 @@ The password is sent to the local PowerShell DPAPI operation through standard in
 
 On Windows, do not use the `bin\...` commands. They are macOS/Linux scripts.
 
+### Start automatically after a Windows reboot
+
+After building the JAR and saving the mailbox passwords once, run:
+
+```cmd
+windows\install-autostart.cmd
+```
+
+This installs a scheduled task named `OPCoach MCP Mail` for the current Windows user. After that user signs in, Windows starts the web manager in the background with every registered MCP endpoint. No administrator account and no open terminal window are required. The task restarts the application up to three times after a failure.
+
+DPAPI passwords are tied to the Windows user, so the scheduled task deliberately runs after that same user signs in. It does not start before the Windows login screen.
+
+To remove automatic startup:
+
+```cmd
+windows\uninstall-autostart.cmd
+```
+
+The scheduled task points to the current repository and `target\opcoach-mcp-mail.jar`. The repository must remain at the same location. After an update, rebuild the JAR normally; the scheduled task does not need to be reinstalled.
+
 If the server is already running and you only need to recover the web manager URL, run:
 
 ```cmd

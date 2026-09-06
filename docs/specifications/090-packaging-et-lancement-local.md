@@ -16,6 +16,7 @@ Définir comment un utilisateur ou un stagiaire installe, compile et lance le se
 - Le mode `--http` sert aux tests, aux démonstrations et à certains clients compatibles.
 - En HTTP, le serveur écoute sur `127.0.0.1` par défaut.
 - Le parcours Windows repose sur l'installation préalable d'un JDK Temurin, puis sur `mvnw.cmd`.
+- Sous Windows, une tâche planifiée installable démarre le web manager et tous les profils enregistrés à l'ouverture de session de l'utilisateur courant.
 
 ## Comportement attendu
 
@@ -75,6 +76,7 @@ Si aucune configuration n'existe au lancement du serveur, le message d'erreur do
 - Les commandes de formation ne doivent pas demander de secrets réels dans les supports.
 - Les messages d'erreur au démarrage doivent aider à corriger la configuration.
 - Windows nécessite un JDK installé séparément; le README doit pointer vers l'installateur MSI Temurin officiel.
+- Le démarrage automatique Windows utilise une tâche `AtLogOn`, car les secrets DPAPI ne sont déchiffrables que dans le contexte du même utilisateur Windows.
 
 ## Exemples fictifs sans secrets
 
