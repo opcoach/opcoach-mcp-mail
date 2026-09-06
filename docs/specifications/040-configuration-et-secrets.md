@@ -10,6 +10,7 @@ Définir comment le serveur reçoit sa configuration mail et comment il protège
 - Les secrets sont fournis par variable d'environnement pour les ateliers courts.
 - Les secrets sont stockés dans le trousseau local sur macOS pour les usages durables.
 - Les secrets sont stockés dans un vault local chiffré sur Linux pour les usages durables.
+- Les secrets sont chiffrés avec DPAPI pour l'utilisateur Windows courant pour les usages durables.
 - Un assistant de configuration local guide l'utilisateur lors du premier lancement.
 - Une mini UI locale peut être proposée, mais uniquement sur `127.0.0.1` avec un jeton temporaire.
 - Aucun mot de passe n'est stocké en clair dans le repo.
@@ -52,7 +53,9 @@ Un alias de distribution comme `error+error_opcoach` n'est pas un nom de dossier
 export MAIL_MCP_PASSWORD="mot-de-passe-fictif"
 ```
 
-Pour un usage durable, le serveur doit permettre de l'enregistrer dans le trousseau local macOS ou dans le vault chiffré Linux.
+Pour un usage durable, le serveur permet de l'enregistrer dans le trousseau local macOS, dans le vault chiffré Linux ou avec DPAPI sous Windows.
+
+Sous Windows, les secrets chiffrés sont stockés dans `%USERPROFILE%\.opcoach-mcp-mail\windows-secrets\`. La protection DPAPI utilise la portée `CurrentUser`: seul le même utilisateur Windows, sur la même machine, peut les déchiffrer. Le mot de passe est transmis à PowerShell par l'entrée standard et n'apparaît pas dans la ligne de commande.
 
 L'assistant de configuration demande uniquement les paramètres nécessaires:
 

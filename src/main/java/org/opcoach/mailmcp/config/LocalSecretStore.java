@@ -27,6 +27,9 @@ public final class LocalSecretStore implements SecretStore {
             }
             return new LocalSecretStore(store);
         }
+        if (osName.contains("win")) {
+            return new LocalSecretStore(new WindowsDpapiSecretStore());
+        }
         return new LocalSecretStore(new UnsupportedSecretStore());
     }
 

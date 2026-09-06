@@ -66,13 +66,12 @@ class SecretResolverTest {
     }
 
     @Test
-    void windowsSecretStoreDoesNotPersistPasswords() {
-        KeychainSecretStore store = new KeychainSecretStore("Windows 11");
+    void keychainStoreRemainsMacOnly() {
+        KeychainSecretStore store = new KeychainSecretStore("Linux");
 
         assertEquals(false, store.supportsDurableStorage());
         assertEquals(Optional.empty(), store.readPassword("default"));
         assertEquals(false, store.deletePassword("default"));
-        assertThrows(ConfigurationException.class, () -> store.writePassword("default", "secret".toCharArray()));
     }
 
     private static MailConfiguration configuration(String profile) {

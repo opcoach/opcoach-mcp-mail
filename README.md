@@ -92,7 +92,15 @@ Open the URL printed in the terminal. It looks like:
 http://127.0.0.1:18100/?token=temporary-token
 ```
 
-In the web manager, enter the mailbox password again if requested, then click `Save and start`.
+In the web manager, enter the mailbox password if requested, then click `Save and start`. On Windows, the password is encrypted with DPAPI for the current Windows user and can be reused after restarting the manager. The encrypted file cannot be decrypted by another Windows account or on another machine.
+
+The Windows-protected secrets are stored under:
+
+```text
+%USERPROFILE%\.opcoach-mcp-mail\windows-secrets\
+```
+
+The password is sent to the local PowerShell DPAPI operation through standard input. It is never placed in the process command line or in the profile configuration file.
 
 On Windows, do not use the `bin\...` commands. They are macOS/Linux scripts.
 
@@ -246,7 +254,7 @@ After rebooting the machine, start the web manager and every registered MCP endp
 bin/start-all
 ```
 
-Passwords are not written to configuration files. On macOS, they are stored in the local keychain with the profile name. On Linux, they are stored in a local encrypted vault protected by a vault password. On other platforms, use `MAIL_MCP_PASSWORD` temporarily.
+Passwords are not written to configuration files. On macOS, they are stored in the local keychain with the profile name. On Linux, they are stored in a local encrypted vault protected by a vault password. On Windows, they are encrypted with DPAPI for the current Windows user. On other platforms, use `MAIL_MCP_PASSWORD` temporarily.
 
 ### Multiple incoming folders in one profile
 
@@ -390,7 +398,7 @@ trash.mailbox=INBOX.Trash
 
 `incoming.mailboxes` defaults to `INBOX` when absent, so existing profiles remain compatible.
 
-The macOS keychain is supported for passwords. Linux uses the encrypted local vault. On other platforms, use `MAIL_MCP_PASSWORD` temporarily.
+The macOS keychain is supported for passwords. Linux uses the encrypted local vault. Windows uses DPAPI encryption tied to the current Windows user. On other platforms, use `MAIL_MCP_PASSWORD` temporarily.
 
 ## Codex HTTP Configuration
 
