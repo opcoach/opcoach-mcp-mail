@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $taskName = 'OPCoach MCP Mail'
 $repositoryDirectory = Split-Path -Parent $PSScriptRoot
 $jarPath = Join-Path $repositoryDirectory 'target\opcoach-mcp-mail.jar'
+$currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
 if (-not (Test-Path -LiteralPath $jarPath -PathType Leaf)) {
     throw "Application JAR not found: $jarPath. Run mvnw.cmd -DskipTests package first."
@@ -24,7 +25,7 @@ $action = New-ScheduledTaskAction `
     -Execute $javaExecutable `
     -Argument $arguments `
     -WorkingDirectory $repositoryDirectory
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $currentUser
 $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries `
@@ -34,13 +35,13 @@ $settings = New-ScheduledTaskSettingsSet `
     -ExecutionTimeLimit ([TimeSpan]::Zero) `
     -MultipleInstances IgnoreNew
 $principal = New-ScheduledTaskPrincipal `
-    -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) `
+    -UserId $currentUser `
     -LogonType Interactive `
     -RunLevel Limited
 $task = New-ScheduledTask -Action $action -Trigger $trigger -Settings $settings -Principal $principal
 
 Register-ScheduledTask -TaskName $taskName -InputObject $task -Force | Out-Null
 
-Write-Host "Automatic startup installed for $($env:USERNAME)." -ForegroundColor Green
+Write-Host "Automatic startup installed for $currentUser." -ForegroundColor Green
 Write-Host 'MCP Mail will start automatically after this Windows user signs in.'
 Write-Host "Registered profiles will be started from $repositoryDirectory."
