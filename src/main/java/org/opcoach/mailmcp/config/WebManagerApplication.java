@@ -289,6 +289,8 @@ public final class WebManagerApplication {
         String direction = query.getOrDefault("dir", "asc");
         List<ServerRegistration> sortedRegistrations = sortedRegistrations(registrations, sort, direction);
         String selectedName = selectedProfileName(query, registrations);
+        boolean selectedRegistered = !"new".equals(query.get("mode"))
+                && registrations.stream().anyMatch(registration -> registration.profile().equals(selectedName));
         ProfileForm selected = "new".equals(query.get("mode"))
                 ? ProfileForm.defaults("default", firstFreePort(8095))
                 : loadProfileForm(selectedName, registrations);
@@ -308,14 +310,16 @@ public final class WebManagerApplication {
         body.append("<div class=\"row-actions\">");
         body.append(actionButton("/start", "Start", selected.profile(), !selected.registered() || selected.running(), "good", ""));
         body.append(actionButton("/stop", "Stop", selected.profile(), !selected.registered() || !selected.running(), "danger", ""));
-        body.append(actionButton("/delete", "Delete", selected.profile(), !selected.registered(), "warning", "return confirm('Delete this local profile? Mailbox messages will not be deleted.');"));
+        body.append(actionButton("/delete", "Delete", selected.profile(), !selectedRegistered, "warning", "return confirm('Delete this local profile? Mailbox messages will not be deleted.');"));
         body.append("<a class=\"button ghost\" href=\"").append(link("/export", Map.of())).append("\">Export</a>");
         body.append("<a class=\"button ghost\" href=\"").append(link("/import", Map.of())).append("\">Import</a>");
         body.append("</div>");
         body.append("</section>");
 
         body.append("<section class=\"panel config\">");
-        body.append("<div class=\"panel-head\"><div><h2>Profile configuration</h2><p>Mailbox settings and local MCP port</p></div></div>");
+        body.append("<div class=\"panel-head\"><div><h2>Profile configuration</h2><p>Mailbox settings and local MCP port</p></div>");
+        body.append(deleteIconButton(selected.profile(), !selectedRegistered));
+        body.append("</div>");
         if (!status.isBlank()) {
             body.append("<div class=\"notice ok\">").append(escape(status)).append("</div>");
         }
@@ -1218,6 +1222,19 @@ public final class WebManagerApplication {
                 """.formatted(action(path), confirmScript, escape(profile), style, disabled ? "disabled" : "", escape(label));
     }
 
+    private String deleteIconButton(String profile, boolean disabled) {
+        return """
+                <form method="post" action="%s" class="inline-action" onsubmit="return confirm('Delete this local profile? Mailbox messages will not be deleted.');">
+                  <input type="hidden" name="profile" value="%s">
+                  <button class="delete-icon-button" type="submit" title="Delete profile %s" aria-label="Delete profile %s" %s>
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m5 4v6m4-6v6"/>
+                    </svg>
+                  </button>
+                </form>
+                """.formatted(action("/delete"), escape(profile), escape(profile), escape(profile), disabled ? "disabled" : "");
+    }
+
     private static String input(String label, String name, String value, String hint, boolean required) {
         return """
                 <label>
@@ -1411,6 +1428,9 @@ public final class WebManagerApplication {
                     .row-actions, .form-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; align-items:center; margin-top:22px; }
                     .servers .row-actions, .config .form-actions { flex:0 0 auto; background:white; border-top:1px solid #F0EEF8; margin-top:14px; padding-top:14px; }
                     .inline-action { display:inline; }
+                    .delete-icon-button { display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border:1px solid #F3C9D8; border-radius:12px; background:#FFF4F8; color:#B43A67; cursor:pointer; }
+                    .delete-icon-button:hover:not(:disabled) { background:#FCE3EC; }
+                    .delete-icon-button:disabled { border-color:#ECECF1; background:#F5F5F7; color:#A2A2AA; cursor:not-allowed; }
                     .button { border:0; border-radius:12px; padding:10px 16px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; min-height:40px; }
                     .button:disabled { cursor:not-allowed; background:#ECECF1 !important; color:#A2A2AA !important; }
                     .primary { color:white; background:linear-gradient(110deg, var(--soft), #8F88C7); }
@@ -1419,7 +1439,7 @@ public final class WebManagerApplication {
                     .danger { color:white; background:linear-gradient(110deg, var(--rose), #E975A7); }
                     .warning { color:white; background:linear-gradient(110deg, #B36B00, #FABD43); }
                     .ghost { color:var(--indigo); background:white; border:1px solid #ECEAF7; }
-                    .config form { display:flex; flex:1 1 auto; flex-direction:column; min-height:0; }
+                    .config > form { display:flex; flex:1 1 auto; flex-direction:column; min-height:0; }
                     .config-scroll-body { flex:1 1 auto; min-height:0; overflow:auto; padding-right:4px; }
                     .config-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
                     .tab-button { border:1px solid #DEDCEF; border-radius:999px; background:white; color:var(--indigo); padding:8px 12px; font-weight:700; cursor:pointer; }
