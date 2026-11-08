@@ -6,7 +6,7 @@
 
     <groupId>org.opcoach</groupId>
     <artifactId>opcoach-mcp-mail</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>opcoach-mcp-mail</name>
     <description>Serveur MCP local-first pour boîtes mail IMAP/SMTP génériques.</description>
     <inceptionYear>2026</inceptionYear>
