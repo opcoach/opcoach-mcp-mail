@@ -8,6 +8,8 @@ Local-first MCP server for accessing a generic IMAP/SMTP mailbox from Codex, Cla
 
 The server does not depend on Gmail, Microsoft 365, or any proprietary OAuth flow. It runs on your machine or on a server you control. The email password is never sent to the AI model.
 
+![Web manager showing demo mailboxes with emoji profile names, email addresses, and mail checks](docs/images/manager-overview.jpg)
+
 ## Requirements
 
 - An email account compatible with IMAP and SMTP
@@ -232,8 +234,6 @@ Import/export is intentionally non-secret. Exported files contain profile IDs an
 ## Desktop Manager
 
 The Swing desktop manager is kept temporarily while the web manager becomes the main UI.
-
-![OPCoach MCP Mail manager overview](docs/images/manager-overview.png)
 
 The desktop manager lets you create mailbox profiles, edit IMAP/SMTP settings, start or stop each local MCP server, and copy the MCP URL to paste into Codex or another MCP client.
 
