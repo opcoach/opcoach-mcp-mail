@@ -328,7 +328,6 @@ public final class WebManagerApplication {
         body.append(profileForm(selected));
         body.append("</section>");
         body.append("</main>");
-        body.append(summaryDialog(query));
         body.append(autoRefreshScript(registrations, selected.profile(), sort, direction));
         body.append(pageEnd());
         return body.toString();
@@ -345,7 +344,7 @@ public final class WebManagerApplication {
                 .append(sortHeader("Email", "email", sort, direction))
                 .append("</th><th>")
                 .append(sortHeader("URL", "url", sort, direction))
-                .append("</th><th>Status</th><th>Mail check</th><th class=\"view-column\">View</th></tr></thead><tbody>");
+                .append("</th><th>Status</th><th>Mail check</th></tr></thead><tbody>");
         for (ServerRow row : sortedServerRows(registrations, sort, direction)) {
             ServerRegistration registration = row.registration();
             boolean selected = registration.profile().equals(selectedProfile);
@@ -373,9 +372,6 @@ public final class WebManagerApplication {
                         .append("\">Details</a>");
             }
             html.append("</div></td>");
-            html.append("<td class=\"view-column\"><a class=\"eye-button\" onclick=\"event.stopPropagation()\" href=\"")
-                    .append(link("/", Map.of("profile", registration.profile(), "summary", registration.profile(), "sort", sort, "dir", direction)))
-                    .append("\" title=\"View full settings\">&#128065;</a></td>");
             html.append("</tr>");
         }
         html.append("</tbody></table>");
@@ -485,64 +481,6 @@ public final class WebManagerApplication {
             }
             healthStatuses.put(key, status);
         });
-    }
-
-    private String summaryDialog(Map<String, String> query) {
-        String profile = query.get("summary");
-        if (profile == null || profile.isBlank()) {
-            return "";
-        }
-        Optional<ServerRegistration> registration = findRegistration(profile);
-        if (registration.isEmpty()) {
-            return "";
-        }
-        StringBuilder html = new StringBuilder();
-        html.append("<div class=\"modal-backdrop\"><section class=\"modal\"><div class=\"panel-head\"><div><h2>Server summary</h2><p>")
-                .append(escape(registration.get().label()))
-                .append("</p></div><a class=\"button ghost\" href=\"")
-                .append(link("/", Map.of("profile", query.getOrDefault("profile", registration.get().profile()),
-                        "sort", query.getOrDefault("sort", "profile"),
-                        "dir", query.getOrDefault("dir", "asc"))))
-                .append("\">Close</a></div>");
-        html.append(summaryTable(registration.get()));
-        html.append("</section></div>");
-        return html.toString();
-    }
-
-    private String summaryTable(ServerRegistration registration) {
-        StringBuilder html = new StringBuilder();
-        html.append("<div class=\"summary-grid\">");
-        html.append(summaryRow("Profile name", registration.label()));
-        html.append(summaryRow("Profile ID", registration.profile()));
-        html.append(summaryRow("MCP URL", registration.url()));
-        html.append(summaryRow("Run status", mcpServerManager.isRunning(registration) ? "running" : "stopped"));
-        html.append(summaryRow("Config file", registration.configFile().toString()));
-        if (Files.exists(registration.configFile())) {
-            try {
-                MailConfiguration configuration = new ConfigurationLoader(registration.configFile()).load(registration.profile());
-                html.append(summaryRow("IMAP", configuration.imap().host() + ":" + configuration.imap().port() + " · " + configuration.imap().security()));
-                html.append(summaryRow("SMTP", configuration.smtp().host() + ":" + configuration.smtp().port() + " · " + configuration.smtp().security()));
-                html.append(summaryRow("Username", configuration.username()));
-                html.append(summaryRow("Sender", configuration.fromName().isBlank()
-                        ? configuration.fromAddress()
-                        : configuration.fromName() + " <" + configuration.fromAddress() + ">"));
-                html.append(summaryRow("Reply-To", configuration.replyToAddress().isBlank() ? "(none)" : configuration.replyToAddress()));
-                html.append(summaryRow("Incoming folders", configuration.incomingMailboxesProperty()));
-                html.append(summaryRow("Sent folder", configuration.sentMailbox()));
-                html.append(summaryRow("Trash folder", configuration.trashMailbox()));
-                html.append(summaryRow("Mail check", healthStatuses.getOrDefault(healthKey(registration), HealthStatus.notChecked()).label()));
-            } catch (ConfigurationException exception) {
-                html.append(summaryRow("Configuration error", SafeErrorMessage.clean(exception.getMessage())));
-            }
-        } else {
-            html.append(summaryRow("Configuration", "Missing"));
-        }
-        html.append("</div>");
-        return html.toString();
-    }
-
-    private static String summaryRow(String label, String value) {
-        return "<div class=\"summary-label\">" + escape(label) + "</div><div class=\"summary-value\">" + escape(value) + "</div>";
     }
 
     private String profileForm(ProfileForm profile) {
@@ -1450,8 +1388,6 @@ public final class WebManagerApplication {
                     .health-neutral { color:var(--muted); background:#F0F0F4; }
                     .mail-check { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
                     .details-link { font-size:12px; }
-                    .view-column { width:48px; text-align:center; }
-                    .eye-button { display:inline-flex; width:30px; height:30px; align-items:center; justify-content:center; border:1px solid #ECEAF7; border-radius:999px; background:white; font-size:15px; }
                     .mail-check-detail { margin: 0 0 14px; }
                     .row-actions, .form-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; align-items:center; margin-top:22px; }
                     .servers .row-actions, .config .form-actions { flex:0 0 auto; background:white; border-top:1px solid #F0EEF8; margin-top:14px; padding-top:14px; }
@@ -1491,13 +1427,6 @@ public final class WebManagerApplication {
                     .check small { grid-column:2; margin:0; display:block; }
                     .import-card { border:1px solid var(--border); border-radius:16px; padding:16px; margin:14px 0; }
                     .file-loader { display:block; margin-bottom:12px; }
-                    .modal-backdrop { position:fixed; inset:0; background:rgba(37,37,42,.34); display:flex; align-items:flex-start; justify-content:center; padding:8vh 20px 20px; z-index:10; }
-                    .modal { width:min(760px, 100%%); max-height:84vh; overflow:auto; background:white; border:1px solid var(--border); border-radius:18px; box-shadow:0 24px 80px rgba(37,37,42,.24); padding:22px; }
-                    .summary-grid { display:grid; grid-template-columns: 160px minmax(0,1fr); gap:0; border:1px solid #E6E4F3; border-radius:14px; overflow:hidden; }
-                    .summary-label, .summary-value { padding:10px 12px; border-bottom:1px solid #EDEBF7; }
-                    .summary-label { background:#F4F3F8; color:#4B4B4D; font-weight:700; }
-                    .summary-value { background:white; overflow-wrap:anywhere; }
-                    .summary-label:nth-last-child(2), .summary-value:last-child { border-bottom:0; }
                     @media (max-width: 980px) { .layout { grid-template-columns:1fr; padding:16px; height:auto; min-height:0; } .layout .panel { min-height:420px; max-height:calc(100vh - 32px); } .hero { padding:28px 20px; display:block; } .hero-actions { margin-top:18px; } label { grid-template-columns:1fr; } label small { grid-column:1; } }
                   </style>
                 </head>
