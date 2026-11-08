@@ -342,7 +342,7 @@ public final class WebManagerApplication {
         StringBuilder html = new StringBuilder();
         html.append("<table><thead><tr><th>")
                 .append(sortHeader("Profile", "profile", sort, direction))
-                .append("</th><th>")
+                .append("</th><th>Email</th><th>")
                 .append(sortHeader("URL", "url", sort, direction))
                 .append("</th><th>Status</th><th>Mail check</th><th class=\"view-column\">View</th></tr></thead><tbody>");
         for (ServerRegistration registration : registrations) {
@@ -358,6 +358,7 @@ public final class WebManagerApplication {
             html.append("<td><a class=\"profile-name\" onclick=\"event.stopPropagation()\" href=\"")
                     .append(rowLink).append("\" title=\"").append(escape(registration.profile())).append("\">")
                     .append(escape(registration.label())).append("</a></td>");
+            html.append(emailCell(registration));
             html.append("<td><button class=\"link-button\" type=\"button\" onclick=\"event.stopPropagation();copyText('")
                     .append(js(registration.url())).append("')\">").append(escape(registration.url())).append("</button></td>");
             html.append("<td><span class=\"badge ").append(running ? "running" : "stopped").append("\">")
@@ -377,6 +378,16 @@ public final class WebManagerApplication {
         }
         html.append("</tbody></table>");
         return html.toString();
+    }
+
+    static String emailCell(ServerRegistration registration) {
+        String email;
+        try {
+            email = new ConfigurationLoader(registration.configFile()).load(registration.profile()).username();
+        } catch (ConfigurationException | IllegalArgumentException exception) {
+            email = "Unavailable";
+        }
+        return "<td class=\"email-column\">" + escape(email) + "</td>";
     }
 
     private List<ServerRegistration> sortedRegistrations(List<ServerRegistration> registrations, String sort, String direction) {
@@ -947,7 +958,7 @@ public final class WebManagerApplication {
         try {
             MailConfiguration configuration = new ConfigurationLoader(registration.get().configFile()).load(registration.get().profile());
             return ProfileForm.from(registration.get(), configuration, mcpServerManager.isRunning(registration.get()));
-        } catch (ConfigurationException exception) {
+        } catch (ConfigurationException | IllegalArgumentException exception) {
             return ProfileForm.defaults(profile, registration.get().port(), registration.get().displayName());
         }
     }
@@ -1435,7 +1446,7 @@ public final class WebManagerApplication {
                     .row-actions, .form-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; align-items:center; margin-top:22px; }
                     .servers .row-actions, .config .form-actions { flex:0 0 auto; background:white; border-top:1px solid #F0EEF8; margin-top:14px; padding-top:14px; }
                     .inline-action { display:inline; }
-                    .profile-name { overflow-wrap:anywhere; }
+                    .profile-name, .email-column { overflow-wrap:anywhere; }
                     .delete-icon-button { display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border:1px solid #F3C9D8; border-radius:12px; background:#FFF4F8; color:#B43A67; cursor:pointer; }
                     .delete-icon-button:hover:not(:disabled) { background:#FCE3EC; }
                     .delete-icon-button:disabled { border-color:#ECECF1; background:#F5F5F7; color:#A2A2AA; cursor:not-allowed; }
