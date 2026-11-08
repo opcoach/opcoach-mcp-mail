@@ -225,7 +225,7 @@ The `Mail check` column tests each profile in the background when the web manage
 
 In the **Server** settings, enter an optional **Profile name** such as `🧠 Ideas`. It appears in the manager's profile list. Leave it blank to display the **Profile ID**. Changing only the name keeps the same profile ID, saved password, and MCP URL.
 
-The **Email** column shows the configured IMAP username, which can differ from the sender address. It is available even when the MCP endpoint is stopped.
+The **Email** column shows the configured IMAP username, which can differ from the sender address. It is available even when the MCP endpoint is stopped. Click the column header to sort by username.
 
 Import/export is intentionally non-secret. Exported files contain profile IDs and optional display names, local MCP ports, IMAP/SMTP hosts, security modes, usernames, sender identity, Reply-To, incoming folders, Sent folder, and Trash folder. They never contain mailbox passwords, vault passwords, bearer tokens, or stored local credentials. During import, profiles that already exist locally are unchecked by default; new profiles are checked by default. Imported profiles still require entering the mailbox password locally before use.
 

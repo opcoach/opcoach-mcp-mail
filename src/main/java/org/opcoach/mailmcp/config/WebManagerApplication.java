@@ -287,7 +287,6 @@ public final class WebManagerApplication {
         queueInitialHealthChecks(registrations);
         String sort = query.getOrDefault("sort", "profile");
         String direction = query.getOrDefault("dir", "asc");
-        List<ServerRegistration> sortedRegistrations = sortedRegistrations(registrations, sort, direction);
         String selectedName = selectedProfileName(query, registrations);
         boolean selectedRegistered = !"new".equals(query.get("mode"))
                 && registrations.stream().anyMatch(registration -> registration.profile().equals(selectedName));
@@ -305,7 +304,7 @@ public final class WebManagerApplication {
         body.append("<div class=\"panel-head\"><div><h2>Registered servers</h2><p>Local MCP URLs and runtime status</p></div>");
         body.append("<a class=\"button ghost\" href=\"").append(link("/", Map.of("mode", "new"))).append("\">New</a></div>");
         body.append("<div class=\"panel-scroll servers-scroll\" id=\"servers-scroll\">");
-        body.append(serverTable(sortedRegistrations, selected.profile(), sort, direction));
+        body.append(serverTable(registrations, selected.profile(), sort, direction));
         body.append("</div>");
         body.append("<div class=\"row-actions\">");
         body.append(actionButton("/start", "Start", selected.profile(), !selected.registered() || selected.running(), "good", ""));
@@ -342,10 +341,13 @@ public final class WebManagerApplication {
         StringBuilder html = new StringBuilder();
         html.append("<table><thead><tr><th>")
                 .append(sortHeader("Profile", "profile", sort, direction))
-                .append("</th><th>Email</th><th>")
+                .append("</th><th>")
+                .append(sortHeader("Email", "email", sort, direction))
+                .append("</th><th>")
                 .append(sortHeader("URL", "url", sort, direction))
                 .append("</th><th>Status</th><th>Mail check</th><th class=\"view-column\">View</th></tr></thead><tbody>");
-        for (ServerRegistration registration : registrations) {
+        for (ServerRow row : sortedServerRows(registrations, sort, direction)) {
+            ServerRegistration registration = row.registration();
             boolean selected = registration.profile().equals(selectedProfile);
             boolean running = mcpServerManager.isRunning(registration);
             HealthStatus health = healthStatuses.getOrDefault(healthKey(registration), HealthStatus.notChecked());
@@ -358,7 +360,7 @@ public final class WebManagerApplication {
             html.append("<td><a class=\"profile-name\" onclick=\"event.stopPropagation()\" href=\"")
                     .append(rowLink).append("\" title=\"").append(escape(registration.profile())).append("\">")
                     .append(escape(registration.label())).append("</a></td>");
-            html.append(emailCell(registration));
+            html.append(row.emailCell());
             html.append("<td><button class=\"link-button\" type=\"button\" onclick=\"event.stopPropagation();copyText('")
                     .append(js(registration.url())).append("')\">").append(escape(registration.url())).append("</button></td>");
             html.append("<td><span class=\"badge ").append(running ? "running" : "stopped").append("\">")
@@ -380,26 +382,34 @@ public final class WebManagerApplication {
         return html.toString();
     }
 
-    static String emailCell(ServerRegistration registration) {
-        String email;
-        try {
-            email = new ConfigurationLoader(registration.configFile()).load(registration.profile()).username();
-        } catch (ConfigurationException | IllegalArgumentException exception) {
-            email = "Unavailable";
+    record ServerRow(ServerRegistration registration, String email) {
+        static ServerRow load(ServerRegistration registration) {
+            try {
+                String email = new ConfigurationLoader(registration.configFile()).load(registration.profile()).username();
+                return new ServerRow(registration, email);
+            } catch (ConfigurationException | IllegalArgumentException exception) {
+                return new ServerRow(registration, null);
+            }
         }
-        return "<td class=\"email-column\">" + escape(email) + "</td>";
+
+        String emailCell() {
+            return "<td class=\"email-column\">" + escape(email == null ? "Unavailable" : email) + "</td>";
+        }
     }
 
-    private List<ServerRegistration> sortedRegistrations(List<ServerRegistration> registrations, String sort, String direction) {
-        Comparator<ServerRegistration> comparator = switch (sort) {
-            case "url" -> Comparator.comparing(ServerRegistration::url, String.CASE_INSENSITIVE_ORDER);
-            default -> Comparator.comparing(ServerRegistration::label, String.CASE_INSENSITIVE_ORDER)
-                    .thenComparing(ServerRegistration::profile);
+    static List<ServerRow> sortedServerRows(List<ServerRegistration> registrations, String sort, String direction) {
+        boolean descending = "desc".equals(direction);
+        Comparator<String> textOrder = descending ? String.CASE_INSENSITIVE_ORDER.reversed() : String.CASE_INSENSITIVE_ORDER;
+        Comparator<ServerRow> profileOrder = Comparator
+                .comparing((ServerRow row) -> row.registration().label(), String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(row -> row.registration().profile());
+        Comparator<ServerRow> comparator = switch (sort) {
+            case "email" -> Comparator.comparing(ServerRow::email, Comparator.nullsLast(textOrder))
+                    .thenComparing(profileOrder);
+            case "url" -> Comparator.comparing(row -> row.registration().url(), textOrder);
+            default -> descending ? profileOrder.reversed() : profileOrder;
         };
-        if ("desc".equals(direction)) {
-            comparator = comparator.reversed();
-        }
-        return registrations.stream().sorted(comparator).toList();
+        return registrations.stream().map(ServerRow::load).sorted(comparator).toList();
     }
 
     private String sortHeader(String label, String field, String sort, String direction) {
