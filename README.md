@@ -198,6 +198,23 @@ The same URL is also saved locally in:
 
 Keep this URL local. Do not publish it on a public domain. It is intended for the current machine, or for a private SSH tunnel to a server you control.
 
+### Stable browser bookmark on macOS
+
+On a personal Mac, you can opt in to a stable URL. Run these commands once to create a private token (an existing token is preserved):
+
+```bash
+(
+  umask 077
+  mkdir -p "$HOME/.opcoach-mcp-mail"
+  token_file="$HOME/.opcoach-mcp-mail/web-manager.bookmark-token"
+  if [ ! -e "$token_file" ] && [ ! -L "$token_file" ]; then
+    openssl rand -hex -out "$token_file" 24
+  fi
+)
+```
+
+Restart the web manager, then run `open "$(cat ~/.opcoach-mcp-mail/web-manager.url)"` and bookmark the page. The bookmark contains the access token: keep it private. Move `web-manager.bookmark-token` out of the configuration directory and restart the manager to invalidate the bookmark and return to per-start tokens.
+
 In the web manager, use `Save and start` when a profile is ready, then `Copy MCP URL` to configure the AI client:
 
 ```text

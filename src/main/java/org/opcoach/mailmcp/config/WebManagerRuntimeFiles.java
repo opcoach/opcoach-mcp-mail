@@ -3,8 +3,12 @@ package org.opcoach.mailmcp.config;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFileAttributes;
 import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
@@ -13,6 +17,7 @@ public final class WebManagerRuntimeFiles {
 
     private static final String URL_FILE = "web-manager.url";
     private static final String PID_FILE = "web-manager.pid";
+    private static final String BOOKMARK_TOKEN_FILE = "web-manager.bookmark-token";
 
     private final Path baseDir;
 
@@ -26,6 +31,28 @@ public final class WebManagerRuntimeFiles {
 
     Path urlFile() {
         return baseDir.resolve(URL_FILE);
+    }
+
+    Optional<String> bookmarkToken() {
+        Path path = baseDir.resolve(BOOKMARK_TOKEN_FILE);
+        try {
+            var attributes = Files.readAttributes(path, PosixFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+            if (!attributes.isRegularFile() || !attributes.permissions().equals(PosixFilePermissions.fromString("rw-------"))) {
+                throw new ConfigurationException("The web manager bookmark token must be a regular file with permissions 0600: " + path);
+            }
+            String token = Files.readString(path, StandardCharsets.US_ASCII).strip();
+            if (!token.matches("[a-f0-9]{48}")) {
+                throw new ConfigurationException("Invalid web manager bookmark token format in " + path);
+            }
+            return Optional.of(token);
+        } catch (NoSuchFileException exception) {
+            return Optional.empty();
+        } catch (UnsupportedOperationException exception) {
+            // This opt-in is only supported on filesystems with POSIX permissions.
+            return Optional.empty();
+        } catch (IOException exception) {
+            throw new ConfigurationException("Unable to read the web manager bookmark token in " + path, exception);
+        }
     }
 
     void write(String url, long pid) {

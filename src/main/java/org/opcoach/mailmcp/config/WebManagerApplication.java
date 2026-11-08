@@ -61,8 +61,8 @@ public final class WebManagerApplication {
     });
     private final Map<String, HealthStatus> healthStatuses = new ConcurrentHashMap<>();
     private final Set<String> healthChecksInFlight = ConcurrentHashMap.newKeySet();
-    private final String token = newToken();
     private final WebManagerRuntimeFiles runtimeFiles = WebManagerRuntimeFiles.defaults();
+    private final String token = runtimeFiles.bookmarkToken().orElseGet(WebManagerApplication::newToken);
     private volatile SecretStore secretStore;
     private char[] vaultPassword;
 
