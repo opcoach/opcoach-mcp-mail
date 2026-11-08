@@ -2,6 +2,7 @@ package org.opcoach.mailmcp.config;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 
@@ -31,7 +32,8 @@ class ProfileTransferTest {
                 "reply@example.com",
                 "INBOX,error+warning_opcoach",
                 "INBOX.Sent",
-                "INBOX.Trash"
+                "INBOX.Trash",
+                ""
         );
 
         String exported = transfer.write(List.of(profile));
@@ -40,6 +42,8 @@ class ProfileTransferTest {
         assertTrue(exported.contains("profile.0.name=olivier"));
         assertTrue(exported.contains("profile.0.replyTo.address=reply@example.com"));
         assertTrue(exported.contains("profile.0.incoming.mailboxes=INBOX,error+warning_opcoach"));
+        assertFalse(exported.contains("profile.0.displayName="));
+        assertEquals("olivier", transfer.read(exported).getFirst().label());
         assertFalse(lowerCase.contains("password"));
         assertFalse(lowerCase.contains("token"));
         assertFalse(lowerCase.contains("secret"));
@@ -62,7 +66,8 @@ class ProfileTransferTest {
                 "",
                 "INBOX",
                 "Sent",
-                "Trash"
+                "Trash",
+                "\uD83E\uDDE0 Formation"
         );
 
         List<ProfileTransfer.ProfileSnapshot> imported = transfer.read(transfer.write(List.of(profile)));
@@ -73,6 +78,10 @@ class ProfileTransferTest {
         assertEquals(ConnectionSecurity.STARTTLS, imported.getFirst().smtpSecurity());
         assertEquals("INBOX", imported.getFirst().incomingMailboxes());
         assertEquals("Sent", imported.getFirst().sentMailbox());
+        assertEquals("\uD83E\uDDE0 Formation", imported.getFirst().displayName());
+        ServerRegistration registration = imported.getFirst().registration(new ServerRegistry(Path.of(".")));
+        assertEquals("Mail_Olivier", registration.profile());
+        assertEquals("\uD83E\uDDE0 Formation", registration.label());
     }
 
     @Test

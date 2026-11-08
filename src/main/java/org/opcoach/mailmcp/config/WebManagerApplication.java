@@ -292,7 +292,7 @@ public final class WebManagerApplication {
         boolean selectedRegistered = !"new".equals(query.get("mode"))
                 && registrations.stream().anyMatch(registration -> registration.profile().equals(selectedName));
         ProfileForm selected = "new".equals(query.get("mode"))
-                ? ProfileForm.defaults("default", firstFreePort(8095))
+                ? ProfileForm.defaults("default", firstFreePort(8095), "")
                 : loadProfileForm(selectedName, registrations);
         String status = query.getOrDefault("status", "");
         String error = query.getOrDefault("error", "");
@@ -355,8 +355,9 @@ public final class WebManagerApplication {
                     .append("'\" tabindex=\"0\" onkeydown=\"if(event.key==='Enter'){location.href='")
                     .append(js(rowLink))
                     .append("'}\">");
-            html.append("<td><a onclick=\"event.stopPropagation()\" href=\"").append(rowLink).append("\">")
-                    .append(escape(registration.profile())).append("</a></td>");
+            html.append("<td><a class=\"profile-name\" onclick=\"event.stopPropagation()\" href=\"")
+                    .append(rowLink).append("\" title=\"").append(escape(registration.profile())).append("\">")
+                    .append(escape(registration.label())).append("</a></td>");
             html.append("<td><button class=\"link-button\" type=\"button\" onclick=\"event.stopPropagation();copyText('")
                     .append(js(registration.url())).append("')\">").append(escape(registration.url())).append("</button></td>");
             html.append("<td><span class=\"badge ").append(running ? "running" : "stopped").append("\">")
@@ -381,8 +382,8 @@ public final class WebManagerApplication {
     private List<ServerRegistration> sortedRegistrations(List<ServerRegistration> registrations, String sort, String direction) {
         Comparator<ServerRegistration> comparator = switch (sort) {
             case "url" -> Comparator.comparing(ServerRegistration::url, String.CASE_INSENSITIVE_ORDER);
-            case "profile" -> Comparator.comparing(ServerRegistration::profile, String.CASE_INSENSITIVE_ORDER);
-            default -> Comparator.comparing(ServerRegistration::profile, String.CASE_INSENSITIVE_ORDER);
+            default -> Comparator.comparing(ServerRegistration::label, String.CASE_INSENSITIVE_ORDER)
+                    .thenComparing(ServerRegistration::profile);
         };
         if ("desc".equals(direction)) {
             comparator = comparator.reversed();
@@ -476,7 +477,7 @@ public final class WebManagerApplication {
         }
         StringBuilder html = new StringBuilder();
         html.append("<div class=\"modal-backdrop\"><section class=\"modal\"><div class=\"panel-head\"><div><h2>Server summary</h2><p>")
-                .append(escape(registration.get().profile()))
+                .append(escape(registration.get().label()))
                 .append("</p></div><a class=\"button ghost\" href=\"")
                 .append(link("/", Map.of("profile", query.getOrDefault("profile", registration.get().profile()),
                         "sort", query.getOrDefault("sort", "profile"),
@@ -490,7 +491,8 @@ public final class WebManagerApplication {
     private String summaryTable(ServerRegistration registration) {
         StringBuilder html = new StringBuilder();
         html.append("<div class=\"summary-grid\">");
-        html.append(summaryRow("Profile", registration.profile()));
+        html.append(summaryRow("Profile name", registration.label()));
+        html.append(summaryRow("Profile ID", registration.profile()));
         html.append(summaryRow("MCP URL", registration.url()));
         html.append(summaryRow("Run status", mcpServerManager.isRunning(registration) ? "running" : "stopped"));
         html.append(summaryRow("Config file", registration.configFile().toString()));
@@ -537,7 +539,8 @@ public final class WebManagerApplication {
                 """);
         html.append("<div class=\"config-section active\" data-panel=\"server\">");
         html.append("<h3>Server</h3>");
-        html.append(input("Profile", "profile", profile.profile(), "Short name used by Codex, OptimumAI, and logs.", true));
+        html.append(input("Profile name", "displayName", profile.displayName(), "", false));
+        html.append(input("Profile ID", "profile", profile.profile(), "Used by scripts and local credentials.", true));
         html.append(input("Local MCP port", "mcpPort", Integer.toString(profile.mcpPort()), "Usually 8095, 8096, 8097...", true));
         html.append("</div>");
 
@@ -583,10 +586,10 @@ public final class WebManagerApplication {
         if ("start".equals(action)) {
             mcpServerManager.start(result.registration(), result.transientPassword(), vaultPasswordForStart());
             queueHealthCheck(result.registration(), true);
-            redirect(exchange, "/", Map.of("profile", result.registration().profile(), "status", "Saved and started " + result.registration().profile() + "."));
+            redirect(exchange, "/", Map.of("profile", result.registration().profile(), "status", "Saved and started " + result.registration().label() + "."));
             return;
         }
-        redirect(exchange, "/", Map.of("profile", result.registration().profile(), "status", "Saved " + result.registration().profile() + "."));
+        redirect(exchange, "/", Map.of("profile", result.registration().profile(), "status", "Saved " + result.registration().label() + "."));
     }
 
     private SaveResult saveProfile(Map<String, String> values) {
@@ -596,7 +599,8 @@ public final class WebManagerApplication {
                 registry.configFile(profile),
                 registry.runDir(profile),
                 LOCAL_HOST,
-                parsePort(required(values, "mcpPort"), "Local MCP port")
+                parsePort(required(values, "mcpPort"), "Local MCP port"),
+                values.get("displayName")
         );
         validatePortAvailability(registration);
         ConfigurationDraft draft = new ConfigurationDraft(
@@ -765,8 +769,8 @@ public final class WebManagerApplication {
                 ServerRegistration registration = registrations.get(index);
                 html.append("<label class=\"check\"><input type=\"checkbox\" name=\"profile.")
                         .append(index).append("\" value=\"").append(escape(registration.profile()))
-                        .append("\" checked> <span>").append(escape(registration.profile()))
-                        .append("</span><small>").append(escape(registration.url())).append("</small></label>");
+                        .append("\" checked> <span>").append(escape(registration.label()))
+                        .append("</span><small>").append(escape(registration.profile() + " · " + registration.url())).append("</small></label>");
             }
             html.append("<div class=\"form-actions\"><a class=\"button ghost\" href=\"").append(link("/", Map.of()))
                     .append("\">Back</a><button class=\"button strong\" type=\"submit\">Download export</button></div></form>");
@@ -830,7 +834,7 @@ public final class WebManagerApplication {
             html.append("<div class=\"import-card\">");
             html.append("<label class=\"check\"><input type=\"checkbox\" name=\"include.")
                     .append(index).append("\" ").append(exists ? "" : "checked").append("> <span>")
-                    .append(escape(snapshot.profile())).append("</span>");
+                    .append(escape(snapshot.label())).append("</span>");
             html.append(exists ? "<small>Already configured locally; unchecked by default.</small>" : "<small>New local profile; checked by default.</small>");
             html.append("</label>");
             html.append(hidden(index, "profile", snapshot.profile()));
@@ -847,6 +851,7 @@ public final class WebManagerApplication {
             html.append(hidden(index, "incomingMailboxes", snapshot.incomingMailboxes()));
             html.append(hidden(index, "sentMailbox", snapshot.sentMailbox()));
             html.append(hidden(index, "trashMailbox", snapshot.trashMailbox()));
+            html.append(hidden(index, "displayName", snapshot.displayName()));
             html.append("<label>Local MCP port<input name=\"profile.").append(index)
                     .append(".mcpPort\" value=\"").append(port).append("\" type=\"number\" min=\"1\" max=\"65535\"></label>");
             if (port != snapshot.mcpPort()) {
@@ -902,7 +907,8 @@ public final class WebManagerApplication {
                 values.getOrDefault(prefix + "replyToAddress", ""),
                 values.getOrDefault(prefix + "incomingMailboxes", MailConfiguration.DEFAULT_INCOMING_MAILBOX),
                 required(values, prefix + "sentMailbox"),
-                required(values, prefix + "trashMailbox")
+                required(values, prefix + "trashMailbox"),
+                values.getOrDefault(prefix + "displayName", "")
         );
     }
 
@@ -935,13 +941,14 @@ public final class WebManagerApplication {
                 .filter(candidate -> candidate.profile().equals(profile))
                 .findFirst();
         if (registration.isEmpty() || !Files.exists(registration.get().configFile())) {
-            return ProfileForm.defaults(profile, registration.map(ServerRegistration::port).orElseGet(() -> firstFreePort(8095)));
+            return ProfileForm.defaults(profile, registration.map(ServerRegistration::port).orElseGet(() -> firstFreePort(8095)),
+                    registration.map(ServerRegistration::displayName).orElse(""));
         }
         try {
             MailConfiguration configuration = new ConfigurationLoader(registration.get().configFile()).load(registration.get().profile());
             return ProfileForm.from(registration.get(), configuration, mcpServerManager.isRunning(registration.get()));
         } catch (ConfigurationException exception) {
-            return ProfileForm.defaults(profile, registration.get().port());
+            return ProfileForm.defaults(profile, registration.get().port(), registration.get().displayName());
         }
     }
 
@@ -1428,6 +1435,7 @@ public final class WebManagerApplication {
                     .row-actions, .form-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; align-items:center; margin-top:22px; }
                     .servers .row-actions, .config .form-actions { flex:0 0 auto; background:white; border-top:1px solid #F0EEF8; margin-top:14px; padding-top:14px; }
                     .inline-action { display:inline; }
+                    .profile-name { overflow-wrap:anywhere; }
                     .delete-icon-button { display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border:1px solid #F3C9D8; border-radius:12px; background:#FFF4F8; color:#B43A67; cursor:pointer; }
                     .delete-icon-button:hover:not(:disabled) { background:#FCE3EC; }
                     .delete-icon-button:disabled { border-color:#ECECF1; background:#F5F5F7; color:#A2A2AA; cursor:not-allowed; }
@@ -1641,6 +1649,7 @@ public final class WebManagerApplication {
     private record ProfileForm(
             String originalProfile,
             String profile,
+            String displayName,
             int mcpPort,
             String imapHost,
             int imapPort,
@@ -1659,11 +1668,12 @@ public final class WebManagerApplication {
             boolean running
     ) {
 
-        static ProfileForm defaults(String profile, int port) {
+        static ProfileForm defaults(String profile, int port, String displayName) {
             String normalized = ServerRegistry.registryName(profile);
             return new ProfileForm(
                     normalized,
                     normalized,
+                    displayName,
                     port,
                     "imap.example.com",
                     993,
@@ -1687,6 +1697,7 @@ public final class WebManagerApplication {
             return new ProfileForm(
                     registration.profile(),
                     registration.profile(),
+                    registration.displayName(),
                     registration.port(),
                     configuration.imap().host(),
                     configuration.imap().port(),

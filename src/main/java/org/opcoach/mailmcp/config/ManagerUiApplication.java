@@ -103,6 +103,7 @@ public final class ManagerUiApplication {
     private JFrame frame;
     private JTable table;
     private JTextField profileField;
+    private JTextField displayNameField;
     private JTextField portField;
     private JTextField imapHostField;
     private JTextField imapPortField;
@@ -302,6 +303,7 @@ public final class ManagerUiApplication {
         c.insets = new Insets(6, 8, 6, 8);
 
         profileField = styledTextField();
+        displayNameField = styledTextField();
         portField = styledTextField();
         imapHostField = styledTextField();
         imapPortField = styledTextField("993");
@@ -321,7 +323,8 @@ public final class ManagerUiApplication {
 
         int row = 0;
         row = addGroupTitle(fields, c, row, "Server");
-        row = addField(fields, c, row, "Profile", profileField, "Short name used by Codex and logs.");
+        row = addField(fields, c, row, "Profile name", displayNameField, "");
+        row = addField(fields, c, row, "Profile ID", profileField, "Used by scripts and local credentials.");
         row = addField(fields, c, row, "Local MCP port", portField, "Usually 8095, 8096, 8097...");
         row = addGroupTitle(fields, c, row, "Incoming mail");
         row = addField(fields, c, row, "IMAP host", imapHostField, "Example: imap.example.com");
@@ -425,6 +428,7 @@ public final class ManagerUiApplication {
 
     private void newProfile() {
         profileField.setText("default");
+        displayNameField.setText("");
         portField.setText(Integer.toString(firstFreePort(8095)));
         imapHostField.setText("imap.example.com");
         imapPortField.setText("993");
@@ -451,6 +455,7 @@ public final class ManagerUiApplication {
             return;
         }
         profileField.setText(registration.profile());
+        displayNameField.setText(registration.displayName());
         portField.setText(Integer.toString(registration.port()));
         passwordField.setText("");
         if (Files.exists(registration.configFile())) {
@@ -628,7 +633,8 @@ public final class ManagerUiApplication {
                 registry.configFile(profile),
                 registry.runDir(profile),
                 "127.0.0.1",
-                parsePort(portField.getText(), "Local MCP port")
+                parsePort(portField.getText(), "Local MCP port"),
+                displayNameField.getText()
         );
     }
 
@@ -1126,7 +1132,7 @@ public final class ManagerUiApplication {
         public Object getValueAt(int rowIndex, int columnIndex) {
             ServerRegistration registration = rows.get(rowIndex);
             return switch (columnIndex) {
-                case 0 -> registration.profile();
+                case 0 -> registration.label();
                 case 1 -> registration.url();
                 case 2 -> processManager.isRunning(registration) ? "running" : "stopped";
                 case 3 -> healthStatuses.getOrDefault(healthKey(registration), HealthStatus.notChecked()).label();

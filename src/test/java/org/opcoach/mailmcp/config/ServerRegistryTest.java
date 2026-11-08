@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ServerRegistryTest {
@@ -51,7 +52,42 @@ class ServerRegistryTest {
 
         assertEquals(1, registrations.size());
         assertEquals("default", registrations.getFirst().profile());
+        assertEquals("default", registrations.getFirst().label());
+        assertEquals("", registrations.getFirst().displayName());
         assertEquals(8095, registrations.getFirst().port());
+    }
+
+    @Test
+    void keepsUnicodeDisplayNamesSeparateFromProfileIdsAndPaths() throws Exception {
+        ServerRegistry registry = new ServerRegistry(tempDir);
+        String name = "\uD83E\uDDE0 Id\u00E9es & projets = \uD83D\uDC69\u200D\uD83D\uDCBB";
+        ServerRegistration original = new ServerRegistration(
+                "ideas", registry.configFile("ideas"), registry.runDir("ideas"), "127.0.0.1", 8095
+        );
+        registry.write(original);
+        registry.write(new ServerRegistration(
+                original.profile(), original.configFile(), original.runDir(), original.host(), original.port(), " " + name + " "
+        ));
+
+        ServerRegistration saved = new ServerRegistry(tempDir).list().getFirst();
+        assertEquals(name, saved.label());
+        assertEquals(original.profile(), saved.profile());
+        assertEquals(original.configFile(), saved.configFile());
+        assertEquals(original.runDir(), saved.runDir());
+        assertEquals(original.url(), saved.url());
+        assertTrue(Files.readString(tempDir.resolve("servers/ideas.env")).contains("DISPLAY_NAME=" + name));
+
+        registry.write(original);
+        assertEquals("ideas", registry.list().getFirst().label());
+    }
+
+    @Test
+    void rejectsNamesThatCouldInjectAnEnvLine() {
+        ServerRegistry registry = new ServerRegistry(tempDir);
+        assertThrows(ConfigurationException.class, () -> new ServerRegistration(
+                "ideas", registry.configFile("ideas"), registry.runDir("ideas"), "127.0.0.1", 8095,
+                "\uD83E\uDDE0\nPORT=8096"
+        ));
     }
 
     @Test

@@ -21,6 +21,9 @@ public final class ProfileTransfer {
             ProfileSnapshot profile = profiles.get(index);
             String prefix = "profile." + index + ".";
             properties.setProperty(prefix + "name", profile.profile());
+            if (!profile.displayName().isEmpty()) {
+                properties.setProperty(prefix + "displayName", profile.displayName());
+            }
             properties.setProperty(prefix + "mcp.port", Integer.toString(profile.mcpPort()));
             properties.setProperty(prefix + "imap.host", profile.imapHost());
             properties.setProperty(prefix + "imap.port", Integer.toString(profile.imapPort()));
@@ -78,7 +81,8 @@ public final class ProfileTransfer {
                     properties.getProperty(prefix + "replyTo.address", "").trim(),
                     properties.getProperty(prefix + "incoming.mailboxes", MailConfiguration.DEFAULT_INCOMING_MAILBOX).trim(),
                     required(properties, prefix + "sent.mailbox"),
-                    required(properties, prefix + "trash.mailbox")
+                    required(properties, prefix + "trash.mailbox"),
+                    properties.getProperty(prefix + "displayName", "")
             ));
         }
         return profiles;
@@ -100,7 +104,8 @@ public final class ProfileTransfer {
                 configuration.replyToAddress(),
                 configuration.incomingMailboxesProperty(),
                 configuration.sentMailbox(),
-                configuration.trashMailbox()
+                configuration.trashMailbox(),
+                registration.displayName()
         );
     }
 
@@ -151,11 +156,13 @@ public final class ProfileTransfer {
             String replyToAddress,
             String incomingMailboxes,
             String sentMailbox,
-            String trashMailbox
+            String trashMailbox,
+            String displayName
     ) {
 
         public ProfileSnapshot {
             profile = ServerRegistry.registryName(profile);
+            displayName = ServerRegistration.normalizeDisplayName(displayName);
             require(profile, "profile");
             require(imapHost, "imap.host");
             require(smtpHost, "smtp.host");
@@ -188,6 +195,10 @@ public final class ProfileTransfer {
             }
         }
 
+        public String label() {
+            return displayName.isEmpty() ? profile : displayName;
+        }
+
         public ConfigurationDraft draft() {
             return new ConfigurationDraft(
                     profile,
@@ -213,7 +224,8 @@ public final class ProfileTransfer {
                     registry.configFile(profile),
                     registry.runDir(profile),
                     "127.0.0.1",
-                    mcpPort
+                    mcpPort,
+                    displayName
             );
         }
 

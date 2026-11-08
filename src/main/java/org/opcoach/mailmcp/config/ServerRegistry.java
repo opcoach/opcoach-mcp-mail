@@ -69,6 +69,9 @@ public final class ServerRegistry {
                 registration.host(),
                 registration.port()
         );
+        if (!registration.displayName().isEmpty()) {
+            content += "DISPLAY_NAME=" + registration.displayName() + "\n";
+        }
         try {
             Files.createDirectories(file.getParent());
             Files.writeString(file, content, StandardCharsets.UTF_8);
@@ -104,9 +107,10 @@ public final class ServerRegistry {
                     Path.of(required(values, "CONFIG_FILE")),
                     Path.of(required(values, "RUN_DIR")),
                     values.getOrDefault("HOST", "127.0.0.1"),
-                    Integer.parseInt(required(values, "PORT"))
+                    Integer.parseInt(required(values, "PORT")),
+                    values.get("DISPLAY_NAME")
             ));
-        } catch (IOException | IllegalArgumentException exception) {
+        } catch (IOException | IllegalArgumentException | ConfigurationException exception) {
             return java.util.Optional.empty();
         }
     }

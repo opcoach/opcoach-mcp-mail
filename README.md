@@ -206,7 +206,9 @@ http://127.0.0.1:8095/mcp
 
 The `Mail check` column tests each profile in the background when the web manager opens and after a server starts. It checks the local MCP health endpoint when the server is running, verifies IMAP access, reads the message count from every configured incoming folder, and confirms that the configured incoming, Sent, and Trash folders exist.
 
-Import/export is intentionally non-secret. Exported files contain profile names, local MCP ports, IMAP/SMTP hosts, security modes, usernames, sender identity, Reply-To, incoming folders, Sent folder, and Trash folder. They never contain mailbox passwords, vault passwords, bearer tokens, or stored local credentials. During import, profiles that already exist locally are unchecked by default; new profiles are checked by default. Imported profiles still require entering the mailbox password locally before use.
+In the **Server** settings, enter an optional **Profile name** such as `🧠 Ideas`. It appears in the manager's profile list. Leave it blank to display the **Profile ID**. Changing only the name keeps the same profile ID, saved password, and MCP URL.
+
+Import/export is intentionally non-secret. Exported files contain profile IDs and optional display names, local MCP ports, IMAP/SMTP hosts, security modes, usernames, sender identity, Reply-To, incoming folders, Sent folder, and Trash folder. They never contain mailbox passwords, vault passwords, bearer tokens, or stored local credentials. During import, profiles that already exist locally are unchecked by default; new profiles are checked by default. Imported profiles still require entering the mailbox password locally before use.
 
 ## Desktop Manager
 

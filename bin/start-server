@@ -59,7 +59,7 @@ needs_vault_password() {
 }
 
 register_server() {
-  local registry_name
+  local registry_name registry_file display_name_line=""
   if [[ -z "$CONFIG_FILE" || ! -f "$CONFIG_FILE" ]]; then
     return
   fi
@@ -68,13 +68,20 @@ register_server() {
     registry_name="default"
   fi
   mkdir -p "$SERVER_REGISTRY_DIR"
+  registry_file="$SERVER_REGISTRY_DIR/$registry_name.env"
+  if [[ -f "$registry_file" ]]; then
+    display_name_line="$(sed -n '/^DISPLAY_NAME=/{p;q;}' "$registry_file")"
+  fi
   {
     printf 'PROFILE=%s\n' "$PROFILE"
     printf 'CONFIG_FILE=%s\n' "$CONFIG_FILE"
     printf 'RUN_DIR=%s\n' "$RUN_DIR"
     printf 'HOST=%s\n' "$HOST"
     printf 'PORT=%s\n' "$PORT"
-  } > "$SERVER_REGISTRY_DIR/$registry_name.env"
+    if [[ -n "$display_name_line" ]]; then
+      printf '%s\n' "$display_name_line"
+    fi
+  } > "$registry_file"
 }
 
 while [[ $# -gt 0 ]]; do
