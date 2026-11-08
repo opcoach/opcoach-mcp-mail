@@ -143,7 +143,7 @@ bin/web-manager
 For a server that should restart all saved mailbox profiles at once:
 
 ```bash
-bin/start-all
+bin/opcoach-mcp-mailer
 ```
 
 If the server is already running and you only need to recover the web manager URL, run:
@@ -290,7 +290,7 @@ It also registers each local HTTP server under:
 After rebooting the machine, start the web manager and every registered MCP endpoint in one Java process with:
 
 ```bash
-bin/start-all
+bin/opcoach-mcp-mailer
 ```
 
 Passwords are not written to configuration files. On macOS, they are stored in the local keychain with the profile name. On Linux, they are stored in a local encrypted vault protected by a vault password. On Windows, they are encrypted with DPAPI for the current Windows user. On other platforms, use `MAIL_MCP_PASSWORD` temporarily.
@@ -359,10 +359,10 @@ If the encrypted vault exists, `bin/start-server` asks for the vault password an
 After rebooting the server, restart the web manager and every registered profile in one Java process with:
 
 ```bash
-bin/start-all
+bin/opcoach-mcp-mailer
 ```
 
-`bin/start-all` asks once for the vault password when needed, starts the web manager, and starts all registered local MCP endpoints in that same process.
+`bin/opcoach-mcp-mailer` asks once for the vault password when needed, starts the web manager, and starts all registered local MCP endpoints in that same process.
 
 ## Script Reference
 
@@ -385,7 +385,7 @@ bin/web-manager --port 18100
 bin/setup-ui --profile default --port 18100
 bin/manager
 bin/start-server --profile default --port 8095
-bin/start-all
+bin/opcoach-mcp-mailer
 bin/stop-server
 ```
 
@@ -393,7 +393,9 @@ bin/stop-server
 
 `bin/start-server` is kept for direct single-profile HTTP use. It runs one standalone HTTP server on `127.0.0.1:8095` by default. It writes the PID file and logs under `.run/`, and builds `target/opcoach-mcp-mail.jar` automatically if it is missing.
 
-`bin/start-all` is a convenience wrapper around `bin/web-manager --start-registered --no-open`. It stays in the foreground because the single Java process owns both the web manager and the registered MCP endpoints.
+`bin/opcoach-mcp-mailer` is a convenience wrapper around `bin/web-manager --start-registered --no-open`. It stays in the foreground because the single Java process owns both the web manager and the registered MCP endpoints.
+
+For a macOS LaunchAgent or other startup entry, use the absolute path to `bin/opcoach-mcp-mailer`. The old `bin/start-all` path still forwards to it for existing setups.
 
 ## Advanced Jar Usage
 

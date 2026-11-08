@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+BASE_DIR="${MAIL_MCP_BASE_DIR:-$HOME/.opcoach-mcp-mail}"
+SERVER_REGISTRY_DIR="$BASE_DIR/servers"
+VAULT_FILE="${MAIL_MCP_VAULT_FILE:-$BASE_DIR/secrets.enc}"
+BUILD_IF_MISSING=1
+DRY_RUN=0
+
+usage() {
+  cat <<'USAGE'
+Usage: bin/opcoach-mcp-mailer [--dry-run] [--no-build]
+
+Starts the web manager and every registered MCP endpoint in one Java process.
+The process stays in the foreground; stop it to stop the web manager and MCP endpoints.
+
+Options:
+  --dry-run   Print what would be started without starting it.
+  --no-build  Fail if target/opcoach-mcp-mail.jar does not exist.
+  -h, --help  Show this help.
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --no-build)
+      BUILD_IF_MISSING=0
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+shopt -s nullglob
+SERVER_FILES=("$SERVER_REGISTRY_DIR"/*.env)
+shopt -u nullglob
+
+if (( ${#SERVER_FILES[@]} == 0 )); then
+  echo "No registered local MCP mail servers found in $SERVER_REGISTRY_DIR."
+  echo "Open bin/web-manager once and save at least one mailbox profile."
+  exit 0
+fi
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  echo "Would start one web-manager process with ${#SERVER_FILES[@]} registered MCP endpoint(s):"
+  for server_file in "${SERVER_FILES[@]}"; do
+    profile="$(sed -n 's/^PROFILE=//p' "$server_file" | head -n 1)"
+    host="$(sed -n 's/^HOST=//p' "$server_file" | head -n 1)"
+    port="$(sed -n 's/^PORT=//p' "$server_file" | head -n 1)"
+    echo "  ${profile:-unknown} -> http://${host:-127.0.0.1}:${port:-unknown}/mcp"
+  done
+  exit 0
+fi
+
+ARGS=(--no-open --start-registered)
+if [[ "$BUILD_IF_MISSING" -eq 0 ]]; then
+  ARGS+=(--no-build)
+fi
+
+VAULT_PASSWORD_INPUT=""
+if [[ -f "$VAULT_FILE" \
+  && -z "${MAIL_MCP_PASSWORD:-}" \
+  && -z "${MAIL_MCP_VAULT_PASSWORD:-}" \
+  && -z "${MAIL_MCP_VAULT_PASSWORD_STDIN:-}" ]]; then
+  read -r -s -p "Vault password: " VAULT_PASSWORD_INPUT
+  echo
+  export MAIL_MCP_VAULT_PASSWORD="$VAULT_PASSWORD_INPUT"
+fi
+
+exec "$REPO_DIR/bin/web-manager" "${ARGS[@]}"
